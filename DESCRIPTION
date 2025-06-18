@@ -1,0 +1,29 @@
+Package: MSstatsResponse
+Type: Package
+Title: Statistical Methods for Chemoproteomics Dose-Response Analysis
+Version: 0.1.0
+Authors@R: c(
+    person(
+      "Sarah", "Szvetecz",
+      email = "szvetecz.s@northeastern.edu",
+      role = c("aut", "cre")))
+Description: Tools for detecting drug-protein interactions and estimating IC50 
+    values from chemoproteomics data. Implements semi-parametric isotonic regression, 
+    bootstrapping, and curve fitting to evaluate compound effects on protein abundance.
+License: Northeastern
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.3.2
+Imports:
+    ggplot2,
+    dplyr,
+    stats
+Suggests:
+    MSstats,
+    MSstatsTMT,
+    tidyverse,
+    boot,
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
+Roxygen: list(markdown = TRUE)
