@@ -2,7 +2,7 @@
 % Please edit documentation in R/IC50_predicition.R
 \name{PredictIC50}
 \alias{PredictIC50}
-\title{Estimate IC50 and Confidence Intervals from Isotonic Regression}
+\title{Predict IC50 (dose where response is 0.5) for each protein and drug}
 \usage{
 PredictIC50(
   data,
@@ -14,22 +14,25 @@ PredictIC50(
 )
 }
 \arguments{
-\item{data}{A data.frame formatted with MSstatsPrepareDoseResponseFit().}
+\item{data}{A data frame with columns: protein, drug, dose, response.}
 
-\item{n_samples}{Number of bootstrap samples for CI estimation (default = 1000).}
+\item{n_samples}{Number of bootstrap samples. Default = 1000.}
 
-\item{alpha}{Significance level for confidence intervals (default = 0.10).}
+\item{alpha}{Confidence level. Default = 0.05.}
 
-\item{increasing}{Logical. If TRUE, fits a non-decreasing model. Default is FALSE.}
+\item{increasing}{Logical. If TRUE, fit a non-decreasing trend.}
 
-\item{transform_dose}{Logical. If TRUE, applies log10(dose + 1) transformation. Default is TRUE.}
+\item{ratio_response}{Logical. If TRUE, use ratio response; else use log2 scale.}
 
-\item{ratio_response}{Logical. If TRUE, transforms y to ratios relative to DMSO. Default is TRUE.}
+\item{transform_x}{Logical. If TRUE, apply log10(x + 1) to dose.}
+
+\item{bootstrap}{Logical. If TRUE, compute 95\% confidence intervals via bootstrapping.}
+
+\item{suppress_warnings}{Logical. If TRUE, suppress warning messages. Default = TRUE.}
 }
 \value{
-A data.frame with protein, IC50, IC50_lower_bound, IC50_upper_bound
+A data frame with columns: protein, drug, IC50, lower CI, upper CI.
 }
 \description{
-Fits isotonic regression models to protein-level dose-response data
-and estimates IC50 along with confidence intervals using bootstrapping.
+Predict IC50 (dose where response is 0.5) for each protein and drug
 }
