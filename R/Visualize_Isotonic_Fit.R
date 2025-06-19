@@ -3,9 +3,14 @@
 #' @param data Protein-level dataset (e.g., output of MSstatsPrepareDoseResponseFit).
 #' @param protein_name Character. Protein name to plot.
 #' @param drug_name Character. Drug name to plot.
+#' @param increasing Logical. If TRUE, fits a non-decreasing model. If FALSE, fits non-increasing.
 #' @param ratio_response Logical. If TRUE, compute IC50 on ratio scale; if FALSE, use log2 intensities.
 #' @param transform_dose Logical. If TRUE, applies log10(dose + 1). Default is TRUE.
 #' @param show_ic50 Logical. If TRUE, adds vertical line and annotation for IC50.
+#' @param add_ci Logical. Include IC50 95% confidence interval bands if TRUE. Default is FALSE.
+#' @param n_samples Number of bootstrap samples if including confidence intervals. Default is 1000.
+#' @param alpha Alpha level for confidence intervals. Default is 0.05.
+
 #' @param ... Additional arguments passed to internal `plot_isotonic()` function.
 #'
 #' @return A ggplot object.
@@ -16,8 +21,12 @@ VisualizeResponseProtein = function(data,
                                     ratio_response = TRUE,
                                     transform_dose = TRUE,
                                     show_ic50 = TRUE,
+                                    add_ci = FALSE,
+                                    n_samples = 1000,
+                                    alpha = 0.10,
+                                    increasing = FALSE,
                                     ...) {
-  # Filter data for the selected protein and drug + DMSO
+  # Subset to single protein + drug (+ DMSO)
   data_single = data %>%
     dplyr::filter(protein == protein_name & drug %in% c("DMSO", drug_name))
 
@@ -28,20 +37,36 @@ VisualizeResponseProtein = function(data,
   x = x_org[order_idx]
   y = y_org[order_idx]
 
-  # Only use plotting args in plot_isotonic, not here
+  # Fit isotonic model
   fit = fit_isotonic_regression(
     x = x, y = y,
-    increasing = FALSE,
+    increasing = increasing,
     transform_x = transform_dose,
     ratio_y = ratio_response,
     test_significance = FALSE
   )
 
-  # Now pass the extra args into the plotting function
+  # Optional: bootstrap CIs
+  ci_bounds = NULL
+  if (add_ci) {
+    ic50_est = PredictIC50(data_single,
+                           ratio_response = ratio_response,
+                           transform_dose = transform_dose,
+                           increasing = increasing,
+                           n_samples = n_samples,
+                           alpha = alpha)
+
+    ci_bounds = list(
+      ci_lower = log10(ic50_est$IC50_lower_bound),
+      ci_upper = log10(ic50_est$IC50_upper_bound)
+    )
+  }
+
   p = plot_isotonic(
     fit = fit,
     ratio = ratio_response,
     show_ic50 = show_ic50,
+    ci = ci_bounds,
     drug_name = drug_name,
     protein_name = protein_name,
     ...
@@ -53,13 +78,20 @@ VisualizeResponseProtein = function(data,
 
 
 
+
+
 #' Plot Isotonic Regression Model
 #'
 #' @param fit A model object returned by fit_isotonic_regression().
+#' @param ratio Logical. If TRUE, shows plot on the ratio scale relative to DMSO (i.e. 0-1 scale). Default is FALSE.
 #' @param show_ic50 Logical. If TRUE, adds vertical line and annotation for IC50.
+#' @param drug_name Drug name for plotting data.
+#' @param protein_name Protein name for plot.
+
 #' @param x_lab Label for x-axis.
 #' @param y_lab Label for y-axis.
 #' @param title Title for the plot.
+#' @param ci Logical. Include IC50 95% confidence interval bands if TRUE. Default is FALSE.
 #' @param legend Logical. Show legend if TRUE.
 #' @param theme_style ggplot2 theme name to apply (default = "classic").
 #' @param original_label Logical. If TRUE, replace x-axis tick labels with original dose labels.
@@ -79,10 +111,10 @@ plot_isotonic = function(fit,
                          x_lab = "dose (nM)",
                          y_lab = "log2 Intensity",
                          title = NULL,
+                         ci = NULL,
                          legend = FALSE,
                          theme_style = "classic",
                          original_label = TRUE) {
-  library(ggplot2)
 
   # Construct title if not provided
   if (is.null(title) && !is.null(drug_name) && !is.null(protein_name)) {
@@ -149,6 +181,20 @@ plot_isotonic = function(fit,
       annotate("text", x = ic50_pred + 0.35, y = y_ic50,
                label = paste("IC50 =", round(ic50_pred_transform, 2)),
                vjust = -0.5, hjust = 0.5, size = 4, fontface = "bold")
+
+    # Show IC50 confidence interval if provided
+    if (show_ic50 && !is.null(ci)) {
+      model_fit_plot = model_fit_plot +
+        geom_segment(aes(x = ci$ci_lower, xend = ci$ci_lower, y = 0, yend = target_response),
+                     linetype = "dotted", color = "gray40", linewidth = 0.8) +
+        geom_segment(aes(x = ci$ci_upper, xend = ci$ci_upper, y = 0, yend = target_response),
+                     linetype = "dotted", color = "gray40", linewidth = 0.8) +
+        annotate("rect",
+                 xmin = ci$ci_lower, xmax = ci$ci_upper,
+                 ymin = 0, ymax = target_response,
+                 alpha = 0.1, fill = "red")
+    }
+
   }
 
   return(model_fit_plot)

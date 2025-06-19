@@ -13,6 +13,7 @@ plot_isotonic(
   x_lab = "dose (nM)",
   y_lab = "log2 Intensity",
   title = NULL,
+  ci = NULL,
   legend = FALSE,
   theme_style = "classic",
   original_label = TRUE
@@ -21,13 +22,21 @@ plot_isotonic(
 \arguments{
 \item{fit}{A model object returned by fit_isotonic_regression().}
 
+\item{ratio}{Logical. If TRUE, shows plot on the ratio scale relative to DMSO (i.e. 0-1 scale). Default is FALSE.}
+
 \item{show_ic50}{Logical. If TRUE, adds vertical line and annotation for IC50.}
+
+\item{drug_name}{Drug name for plotting data.}
+
+\item{protein_name}{Protein name for plot.}
 
 \item{x_lab}{Label for x-axis.}
 
 \item{y_lab}{Label for y-axis.}
 
 \item{title}{Title for the plot.}
+
+\item{ci}{Logical. Include IC50 95\% confidence interval bands if TRUE. Default is FALSE.}
 
 \item{legend}{Logical. Show legend if TRUE.}
 

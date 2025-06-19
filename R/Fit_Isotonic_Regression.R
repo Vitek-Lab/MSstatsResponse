@@ -77,6 +77,7 @@ DoseResponseFit = function(data, weights = NULL,
 #' @param w Optional numeric vector of weights. Defaults to equal weights.
 #' @param increasing Logical. If TRUE, fits a non-decreasing model. If FALSE, fits non-increasing.
 #' @param transform_x Logical. If TRUE, applies log10(x + 1) transformation. Default is TRUE.
+#' @param ratio_y Logical. If TRUE, converts log2 abundance to ratios relative to DMSO. Default is FALSE.
 #' @param test_significance Logical. If TRUE, performs F-test to assess significance.
 #'
 #' @return A list representing the isotonic regression model (class = "isotonic_model").

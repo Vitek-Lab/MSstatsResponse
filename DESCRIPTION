@@ -10,7 +10,7 @@ Authors@R: c(
 Description: Tools for detecting drug-protein interactions and estimating IC50 
     values from chemoproteomics data. Implements semi-parametric isotonic regression, 
     bootstrapping, and curve fitting to evaluate compound effects on protein abundance.
-License: Northeastern
+License: Artistic-2.0
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.3.2

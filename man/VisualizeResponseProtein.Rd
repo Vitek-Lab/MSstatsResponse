@@ -11,6 +11,10 @@ VisualizeResponseProtein(
   ratio_response = TRUE,
   transform_dose = TRUE,
   show_ic50 = TRUE,
+  add_ci = FALSE,
+  n_samples = 1000,
+  alpha = 0.1,
+  increasing = FALSE,
   ...
 )
 }
@@ -26,6 +30,14 @@ VisualizeResponseProtein(
 \item{transform_dose}{Logical. If TRUE, applies log10(dose + 1). Default is TRUE.}
 
 \item{show_ic50}{Logical. If TRUE, adds vertical line and annotation for IC50.}
+
+\item{add_ci}{Logical. Include IC50 95\% confidence interval bands if TRUE. Default is FALSE.}
+
+\item{n_samples}{Number of bootstrap samples if including confidence intervals. Default is 1000.}
+
+\item{alpha}{Alpha level for confidence intervals. Default is 0.05.}
+
+\item{increasing}{Logical. If TRUE, fits a non-decreasing model. If FALSE, fits non-increasing.}
 
 \item{...}{Additional arguments passed to internal \code{plot_isotonic()} function.}
 }

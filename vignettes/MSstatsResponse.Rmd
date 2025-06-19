@@ -93,7 +93,7 @@ First, pre-process data using base MSstats:
 #saveRDS(dia_norm_temp, "../data/DIA_MSstats_Normalized.RDS")
 
 # Read in pre-proccessed data example -- 
-dia_normalized = readRDS("../data/DIA_MSstats_Normalized.RDS")
+dia_normalized = readRDS("../inst/extdata/DIA_MSstats_Normalized.RDS")
 dia_normalized$ProteinLevelData[1:5,]
 ```
 

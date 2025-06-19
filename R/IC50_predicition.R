@@ -3,12 +3,10 @@
 #' @param data A data frame with columns: protein, drug, dose, response.
 #' @param increasing Logical. If TRUE, fit a non-decreasing trend.
 #' @param ratio_response Logical. If TRUE, use ratio response; else use log2 scale.
-#' @param transform_x Logical. If TRUE, apply log10(x + 1) to dose.
-#' @param bootstrap Logical. If TRUE, compute 95% confidence intervals via bootstrapping.
+#' @param transform_dose Logical. If TRUE, applies log10(dose + 1) transformation. Default is TRUE.
+#' @param bootstrap Logical. If FALSE, skip confidence interval bootstrap estimation and only return IC50.
 #' @param n_samples Number of bootstrap samples. Default = 1000.
 #' @param alpha Confidence level. Default = 0.05.
-#' @param suppress_warnings Logical. If TRUE, suppress warning messages. Default = TRUE.
-#'
 #' @return A data frame with columns: protein, drug, IC50, lower CI, upper CI.
 #' @export
 PredictIC50 = function(data,
@@ -16,7 +14,8 @@ PredictIC50 = function(data,
                        alpha = 0.10,
                        increasing = FALSE,
                        transform_dose = TRUE,
-                       ratio_response = TRUE) {
+                       ratio_response = TRUE,
+                       bootstrap = TRUE) {
 
   protein_list = unique(data$protein)
   drug_list = unique(data$drug[data$drug != "DMSO"])
@@ -59,15 +58,20 @@ PredictIC50 = function(data,
               next
             }
 
-            bootstrap_res = bootstrap_ic50(
-              dose = x, response = y_ratio,
-              n_samples = n_samples, alpha = alpha,
-              increasing = increasing
-            )
-
             ic50 = 10^ic50_est
-            lower = as.numeric(bootstrap_res$ci_lower_transform)
-            upper = as.numeric(bootstrap_res$ci_upper_transform)
+
+            if (bootstrap) {
+              bootstrap_res = bootstrap_ic50(
+                dose = x, response = y_ratio,
+                n_samples = n_samples, alpha = alpha,
+                increasing = increasing
+              )
+              lower = as.numeric(bootstrap_res$ci_lower_transform)
+              upper = as.numeric(bootstrap_res$ci_upper_transform)
+            } else {
+              lower = NA
+              upper = NA
+            }
 
           } else {
             dmso_mean = mean(y[x == 0], na.rm = TRUE)
@@ -91,15 +95,20 @@ PredictIC50 = function(data,
               next
             }
 
-            bootstrap_res = bootstrap_ic50_logscale(
-              x = x, y = y,
-              n_samples = n_samples, alpha = alpha,
-              increasing = increasing
-            )
-
             ic50 = 10^ic50_est
-            lower = as.numeric(bootstrap_res$ci_lower_transform)
-            upper = as.numeric(bootstrap_res$ci_upper_transform)
+
+            if (bootstrap) {
+              bootstrap_res = bootstrap_ic50_logscale(
+                x = x, y = y,
+                n_samples = n_samples, alpha = alpha,
+                increasing = increasing
+              )
+              lower = as.numeric(bootstrap_res$ci_lower_transform)
+              upper = as.numeric(bootstrap_res$ci_upper_transform)
+            } else {
+              lower = NA
+              upper = NA
+            }
           }
 
           results_list[[length(results_list) + 1]] = data.frame(
@@ -169,18 +178,23 @@ predict_ic50 = function(fit, target_response = 0.5) {
 #' @export
 bootstrap_ic50 = function(dose, response, n_samples = 1000, alpha = 0.10,
                           increasing = FALSE) {
-  n = length(dose)
   ic50_vals = numeric(n_samples)
+  df = data.frame(dose = dose, response = response)
 
   for (i in seq_len(n_samples)) {
-    idx = sample(seq_len(n), n, replace = TRUE)
-    dose_sample = dose[idx]
-    response_sample = response[idx]
+    # Sample with replacement within each dose group
+    boot_df = df %>%
+      dplyr::group_by(dose) %>%
+      dplyr::sample_frac(size = 1, replace = TRUE) %>%
+      dplyr::ungroup()
+
+    x_sample = boot_df$dose
+    y_sample = boot_df$response
 
     tryCatch({
-      fit_sample = fit_isotonic_regression(dose_sample, response_sample,
+      fit_sample = fit_isotonic_regression(x_sample, y_sample,
                                            increasing = increasing,
-                                           transform_dose = TRUE,
+                                           transform_x = TRUE,
                                            ratio_y = TRUE,
                                            test_significance = FALSE)
       ic50_est = predict_ic50(fit_sample)
@@ -218,13 +232,18 @@ bootstrap_ic50 = function(dose, response, n_samples = 1000, alpha = 0.10,
 #' @export
 bootstrap_ic50_logscale = function(x, y, n_samples = 1000, alpha = 0.05,
                                    increasing = FALSE) {
-  n = length(x)
   ic50_vals = numeric(n_samples)
+  df = data.frame(dose = x, response = y)
 
   for (i in seq_len(n_samples)) {
-    idx = sample(seq_len(n), n, replace = TRUE)
-    x_sample = x[idx]
-    y_sample = y[idx]
+    # Sample with replacement within each dose group
+    boot_df = df %>%
+      dplyr::group_by(dose) %>%
+      dplyr::sample_frac(size = 1, replace = TRUE) %>%
+      dplyr::ungroup()
+
+    x_sample = boot_df$dose
+    y_sample = boot_df$response
 
     dmso_idx = which(x_sample == 0)
     if (length(dmso_idx) == 0) {
@@ -241,7 +260,7 @@ bootstrap_ic50_logscale = function(x, y, n_samples = 1000, alpha = 0.05,
                                            transform_x = TRUE,
                                            ratio_y = FALSE,
                                            test_significance = FALSE)
-      ic50_est = predict_ic50(fit_sample, target_y = target_response)
+      ic50_est = predict_ic50(fit_sample, target_response = target_response)
       ic50_vals[i] = ifelse(is.na(ic50_est), NA, ic50_est)
     }, error = function(e) {
       ic50_vals[i] = NA

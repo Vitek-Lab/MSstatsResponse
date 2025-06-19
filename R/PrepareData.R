@@ -40,6 +40,7 @@ ConvertGroupToNumericDose = function(group_vector) {
 #'
 #' @param data A data.frame (e.g. data$ProteinLevelData from MSstats)
 #' @param dose_column Name of the column containing dose values (e.g., "dose")
+#' @param drug_column Name of column containing treatment name (e.g. drug name )
 #' @param protein_column Name of the column containing protein identifiers (e.g., "Protein")
 #' @param log_abundance_column Name of the column with log-transformed abundance values (e.g., "LogIntensities")
 #'

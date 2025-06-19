@@ -17,6 +17,8 @@ MSstatsPrepareDoseResponseFit(
 
 \item{dose_column}{Name of the column containing dose values (e.g., "dose")}
 
+\item{drug_column}{Name of column containing treatment name (e.g. drug name )}
+
 \item{protein_column}{Name of the column containing protein identifiers (e.g., "Protein")}
 
 \item{log_abundance_column}{Name of the column with log-transformed abundance values (e.g., "LogIntensities")}

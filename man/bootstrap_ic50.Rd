@@ -11,32 +11,20 @@ bootstrap_ic50(
   alpha = 0.1,
   increasing = FALSE
 )
-
-bootstrap_ic50(
-  dose,
-  response,
-  n_samples = 1000,
-  alpha = 0.1,
-  increasing = FALSE
-)
 }
 \arguments{
 \item{dose}{Numeric vector of dose values.}
 
-\item{response}{Numeric vector of response values.}
+\item{response}{Numeric vector of response values (on log2 scale).}
 
 \item{n_samples}{Number of bootstrap samples (default = 1000).}
 
 \item{alpha}{Significance level for confidence interval (default = 0.10).}
 
 \item{increasing}{Logical. Fit non-decreasing if TRUE.}
-
-\item{...}{Additional arguments passed to fit_isotonic_regression().}
 }
 \value{
 List with mean IC50, CI bounds, and transformed estimates.
-
-List with mean IC50, lower and upper CI bounds, and all bootstrapped estimates.
 }
 \description{
 Bootstrap IC50 Estimates and Confidence Interval (ratio scale)

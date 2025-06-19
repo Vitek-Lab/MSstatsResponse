@@ -25,6 +25,8 @@ fit_isotonic_regression(
 
 \item{transform_x}{Logical. If TRUE, applies log10(x + 1) transformation. Default is TRUE.}
 
+\item{ratio_y}{Logical. If TRUE, converts log2 abundance to ratios relative to DMSO. Default is FALSE.}
+
 \item{test_significance}{Logical. If TRUE, performs F-test to assess significance.}
 }
 \value{

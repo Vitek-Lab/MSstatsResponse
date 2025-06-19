@@ -10,7 +10,8 @@ PredictIC50(
   alpha = 0.1,
   increasing = FALSE,
   transform_dose = TRUE,
-  ratio_response = TRUE
+  ratio_response = TRUE,
+  bootstrap = TRUE
 )
 }
 \arguments{
@@ -22,13 +23,11 @@ PredictIC50(
 
 \item{increasing}{Logical. If TRUE, fit a non-decreasing trend.}
 
+\item{transform_dose}{Logical. If TRUE, applies log10(dose + 1) transformation. Default is TRUE.}
+
 \item{ratio_response}{Logical. If TRUE, use ratio response; else use log2 scale.}
 
-\item{transform_x}{Logical. If TRUE, apply log10(x + 1) to dose.}
-
-\item{bootstrap}{Logical. If TRUE, compute 95\% confidence intervals via bootstrapping.}
-
-\item{suppress_warnings}{Logical. If TRUE, suppress warning messages. Default = TRUE.}
+\item{bootstrap}{Logical. If FALSE, skip confidence interval bootstrap estimation and only return IC50.}
 }
 \value{
 A data frame with columns: protein, drug, IC50, lower CI, upper CI.
