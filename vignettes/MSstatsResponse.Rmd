@@ -19,6 +19,20 @@ knitr::opts_chunk$set(
 )
 ```
 
+## Introduction
+
+This vignette introduces the MSstatsResponse package, which provides tools for detecting drug–protein interactions and estimating IC50 values from dose-response mass spectrometry-based proteomics experiments.
+
+MSstatsResponse is designed to work with summarized data from the MSstats and MSstatsTMT workflows, but it can also be used with other dose-response datasets that include protein-level quantifications across drug treatments.
+
+MSstatsResponse includes the following three steps for statistical analysis:
+
+1. Convert input data to the required format using: `MSstatsPrepareDoseResponseFit()`
+2. Detect drug–protein interactions using isotonic regression and F-tests: `DoseResponseFit()`
+3. Estimate IC50 values and confidence intervals: `PredictIC50()`
+
+---
+
 ## 0. Load MSstatsResponse
 
 Load MSstatsResponse
@@ -37,33 +51,8 @@ library(MSstatsTMT)
 library(tidyverse)
 ```
 
-This vignette summarizes the introduction and various options of all functionalities in MSstatsResponse.
-
-MSstatsResponse is a flexible tool that works with proteomics dose response data.
-This package is designed to take protein summarized data, with varying treated conditions, as input.
-Default is set to work in the MSstats framework, but this tool is flexible to work with other doses response datasets as well.
-
--   A set of tools for detecting drug-protein interactions mass spectrometry-based proteomic experiments and estimating response at which 50% inhibition is reached (i.e. IC50).
--   Supports all experiments that can be analyzed using the MSstats and MSstatsTMT R package. Can be applied to other dose response experiments as well.
-
-MSstatsResponse includes the following three steps for statistical testing:
-
-1.  Converter to prepare data to be in input with required format: `MSstatsPrepareDoseResponseFit`.
-2.  Drug-protein interaction detection based using protein quantification data: `DoseResponseFit`
-3.  IC50 prediction and confidence estimation: `PredictIC50`
 
 ## 1. Use base MSstats to perform data cleaning, normalization, and protein summarization  
-
-### MSstatsPrepareDoseResponseFit( )
-
-Convert experimental data into the required input format for MSstatsResponse.
-
-#### Arguments
-
--   `data` : data.frame of dose response dataset (e.g. data\$ProteinLevelData from MSstats)
--   `dose_column` : name of column in `data` containing dose values (e.g., "dose", "drug_concentration", "treatment")
--   `protein_column` : name of column in `data` containing protein identifiers (e.g., "Protein")
--   `log_abundance_column` : name of column in `data` containing log-transformed abundance values (e.g., "LogIntensities")
 
 #### Example
 
@@ -97,12 +86,45 @@ dia_normalized = readRDS("../inst/extdata/DIA_MSstats_Normalized.RDS")
 dia_normalized$ProteinLevelData[1:5,]
 ```
 
+
+### `ConvertGroupToNumericDose()`
+
+This optional function converts MSstats-style `GROUP` labels into numeric dose values (in nanomolar, nM) and extracts the associated drug names. It is typically used before formatting the dataset with `MSstatsPrepareDoseResponseFit()`.
+
+It supports inputs like `"Dasatinib_003uM"` or `"Capmatinib_300nM"` and assigns a dose of 0 to `"DMSO"`.
+
+**Assumptions:**
+
+- `"DMSO"` is treated as the control group and assigned a dose of **0**
+- Doses must end with either `"uM"` (converted to nM by multiplying by 1000) or `"nM"`
+
+#### Output
+
+A data frame with two columns:
+- `drug`: The drug name as a character string
+- `dose_nM`: The numeric dose in nanomolar (nM)
+
+
 ```{r}
 # Step 1: Format numerical dose column: 
 dia_normalized$ProteinLevelData = dia_normalized$ProteinLevelData %>%
   mutate(dose = ConvertGroupToNumericDose(GROUP)$dose_nM, 
          drug = ConvertGroupToNumericDose(GROUP)$drug)
+```
 
+
+### MSstatsPrepareDoseResponseFit( )
+
+This function prepares the dataset for dose-response analysis by standardizing column names and structure. It expects summarized protein-level intensities across drug conditions.
+
+#### Arguments
+
+- `data`: A `data.frame` of summarized dose-response data (e.g., `data$ProteinLevelData` from MSstats)
+- `dose_column`: Column name containing numeric dose values (e.g., `"dose"`, `"drug_concentration"`)
+- `protein_column`: Column name containing protein identifiers (e.g., `"Protein"`)
+- `log_abundance_column`: Column name with log-transformed abundance values (e.g., `"LogIntensities"`)
+
+```{r}
 # Convert to MSstatsResponse data format via MSstatsPrepareDoseResponseFit()
 dia_pl = MSstatsPrepareDoseResponseFit(dia_normalized$ProteinLevelData)
 dia_pl[1:27,]
@@ -110,35 +132,29 @@ dia_pl[1:27,]
 ```
 
 
-Here is the summary of pre-processing steps in `MSstatsPrepareDoseResponseFit` function.
-
-add
-
 
 ## 2. Drug-Protein Interaction Detection
 
-### DoseResponseFit( )
+### `DoseResponseFit()`
 
-After reading the input files and get the data with required format, `MSstatsResponse` performs
+After preparing the input data using `MSstatsPrepareDoseResponseFit()`, `MSstatsResponse` fits isotonic regression models to detect dose-dependent drug–protein interactions.
 
--   Fitted Isotonic Regression model using desired montonicity constraint. Defualt is 'non-increasing'.
+The function performs the following steps:
 
--   F-test comparing fitted model to average response 
-
--   Multiple testing correction using BH
-
+- Fits an isotonic regression model for each protein–drug pair using the specified monotonicity constraint (default: non-increasing)
+- Performs an F-test to compare the fitted model against a constant (null) model
+- Adjusts p-values for multiple testing using the Benjamini–Hochberg (BH) procedure
 
 #### Arguments
 
-* `data` : protein level formatted with MSstatsPrepareDoseResponseFit() function
-* `weights` : Optional numeric vector of weights. Defaults to equal weights.
-* `increasing` : Logical. If TRUE, fits a non-decreasing model. If FALSE, fits non-increasing.
-* `transform_dose` : Logical. If TRUE, applies log10(dose + 1) transformation. Default is TRUE.
-* `ratio_response` : Logical. If TRUE, converts log abundance to ratios (i.e. relative response to DMSO). Default is FALSE.
+- `data`: Protein-level data formatted using `MSstatsPrepareDoseResponseFit()`
+- `weights`: Optional numeric vector of weights. Defaults to equal weights.
+- `increasing`: Logical. If `TRUE`, fits a non-decreasing model. If `FALSE`, fits a non-increasing model.
+- `transform_dose`: Logical. If `TRUE`, applies a `log10(dose + 1)` transformation. Default is `TRUE`.
+- `ratio_response`: Logical. If `TRUE`, converts log2 abundance values to ratios relative to DMSO. Default is `FALSE`.
 
+**Note:** We strongly recommend performing interaction testing on the **log2 scale** (i.e., with `ratio_response = FALSE`) for best performance. This scale stabilizes variance across doses, reduces skewness in abundance distributions, and improves the sensitivity and specificity of F-tests for detecting monotonic trends.
 
-
-#### Example
 
 ```{r, message=F, warning=F, results='hide'}
 # use MSstatsResponse for drug-response drug-interaction 
@@ -149,25 +165,58 @@ response_results = DoseResponseFit(dia_pl,
 response_results[1:3,]
 ```
 
+## 3. IC50 Estimation
 
-## 3. PredictIC50( )
-Predict IC50 (dose where response is 0.5) for all proteins in dataset.  Compute 95% confidence intervals (parameter estimation with bootstrapping) 
+### `PredictIC50()`
 
-### Arguments
+This function estimates the IC50 (the dose at which response is reduced to 50%) for each protein–drug pair in the dataset. Optionally, it computes 95% confidence intervals using nonparametric bootstrap resampling.
 
-* `data` : protein level formatted with MSstatsPrepareDoseResponseFit() function
-* `increasing` : Logical. If TRUE, fits a non-decreasing model. If FALSE, fits non-increasing.
+By default, IC50 is estimated on the **ratio scale** (i.e., using abundance values normalized to the DMSO control), which improves interpretability and consistency with pharmacological definitions of IC50.
 
-### Example
+Bootstrapped confidence intervals are derived from the empirical distribution of IC50 estimates across resampled datasets.
+
+#### Arguments
+
+- `data`: Protein-level data formatted using `MSstatsPrepareDoseResponseFit()`
+- `increasing`: Logical. If `TRUE`, fits a non-decreasing model. If `FALSE`, fits a non-increasing model.
+- `ratio_response`: Logical. If `TRUE`, estimates IC50 on the ratio scale (recommended). If `FALSE`, uses the log2 scale.
+- `transform_dose`: Logical. If `TRUE`, applies a `log10(dose + 1)` transformation. Default is `TRUE`.
+- `bootstrap`: Logical. If `TRUE`, performs bootstrap resampling to estimate 95% confidence intervals. If `FALSE`, returns point estimates only.
+- `n_samples`: Number of bootstrap resamples. Default is `1000`.
+- `alpha`: Confidence level for interval estimation. Default is `0.10` (for 90% intervals).
+
+**Note:** Although IC50 estimation can be performed on either the log2 or ratio scale, we recommend using the **ratio scale** (`ratio_response = TRUE`) for more interpretable and stable confidence intervals. See Supplemental Section 2.5 for additional discussion of scale choice.
+
 
 ```{r, message=F, warning=F, results='hide'}
 # test for all the possible pairs of conditions
-ic50_predictions = PredictIC50(dia_pl,ratio_response = FALSE)
+ic50_predictions = PredictIC50(dia_pl,
+                               ratio_response = TRUE)
 ic50_predictions[1:3,]
 ```
 
+## 4. Visualization
 
-## Visualization 
+### `VisualizeResponseProtein()`
+
+This function generates a plot of the isotonic regression fit for a selected protein–drug pair. The plot optionally includes the estimated IC50 and its confidence interval.
+
+It is useful for visual inspection of fitted dose–response trends, confirmation of monotonicity, and visualization of IC50 estimates.
+
+#### Arguments
+
+- `data`: Protein-level data formatted using `MSstatsPrepareDoseResponseFit()`
+- `protein_name`: Character string specifying the protein to plot
+- `drug_name`: Character string specifying the drug to plot
+- `increasing`: Logical. If `TRUE`, fits a non-decreasing model. If `FALSE`, fits a non-increasing model
+- `ratio_response`: Logical. If `TRUE`, plots the model on the ratio scale; if `FALSE`, on the log2 scale
+- `transform_dose`: Logical. If `TRUE`, applies a `log10(dose + 1)` transformation. Default is `TRUE`
+- `show_ic50`: Logical. If `TRUE`, adds a vertical line and label at the IC50 estimate
+- `add_ci`: Logical. If `TRUE`, adds 95% confidence interval bounds for IC50 using bootstrap
+- `n_samples`: Number of bootstrap samples for confidence intervals. Default is `1000`
+- `alpha`: Confidence level for interval estimation. Default is `0.10` (for 90% intervals)
+
+
 ```{r}
  
 VisualizeResponseProtein(
