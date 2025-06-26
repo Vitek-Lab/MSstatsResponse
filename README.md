@@ -20,5 +20,5 @@ Install the development version from GitHub:
 
 ```r
 # install.packages("devtools")
-devtools::install_github("xx/MSstatsResponse")
+devtools::install_github("Vitek-Lab/MSstatsResponse")
 ```
