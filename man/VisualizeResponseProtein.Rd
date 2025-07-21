@@ -14,8 +14,7 @@ VisualizeResponseProtein(
   add_ci = FALSE,
   n_samples = 1000,
   alpha = 0.1,
-  increasing = FALSE,
-  ...
+  increasing = FALSE
 )
 }
 \arguments{
@@ -38,8 +37,6 @@ VisualizeResponseProtein(
 \item{alpha}{Alpha level for confidence intervals. Default is 0.05.}
 
 \item{increasing}{Logical. If TRUE, fits a non-decreasing model. If FALSE, fits non-increasing.}
-
-\item{...}{Additional arguments passed to internal \code{plot_isotonic()} function.}
 }
 \value{
 A ggplot object.

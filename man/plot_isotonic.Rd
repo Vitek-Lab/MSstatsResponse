@@ -10,13 +10,13 @@ plot_isotonic(
   show_ic50 = FALSE,
   drug_name = NULL,
   protein_name = NULL,
-  x_lab = "dose (nM)",
-  y_lab = "log2 Intensity",
+  x_lab = expression(Log[10] ~ "[drug (M)]"),
+  y_lab = "Log2 Intensity",
   title = NULL,
   ci = NULL,
   legend = FALSE,
   theme_style = "classic",
-  original_label = TRUE
+  original_label = FALSE
 )
 }
 \arguments{

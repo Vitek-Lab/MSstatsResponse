@@ -11,7 +11,6 @@
 #' @param n_samples Number of bootstrap samples if including confidence intervals. Default is 1000.
 #' @param alpha Alpha level for confidence intervals. Default is 0.05.
 
-#' @param ... Additional arguments passed to internal `plot_isotonic()` function.
 #'
 #' @return A ggplot object.
 #' @export
@@ -24,8 +23,7 @@ VisualizeResponseProtein = function(data,
                                     add_ci = FALSE,
                                     n_samples = 1000,
                                     alpha = 0.10,
-                                    increasing = FALSE,
-                                    ...) {
+                                    increasing = FALSE) {
   # Subset to single protein + drug (+ DMSO)
   data_single = data %>%
     dplyr::filter(protein == protein_name & drug %in% c("DMSO", drug_name))
@@ -57,8 +55,8 @@ VisualizeResponseProtein = function(data,
                            alpha = alpha)
 
     ci_bounds = list(
-      ci_lower = log10(ic50_est$IC50_lower_bound),
-      ci_upper = log10(ic50_est$IC50_upper_bound)
+      ci_lower = ic50_est$IC50_lower_bound,
+      ci_upper = ic50_est$IC50_upper_bound
     )
   }
 
@@ -68,8 +66,7 @@ VisualizeResponseProtein = function(data,
     show_ic50 = show_ic50,
     ci = ci_bounds,
     drug_name = drug_name,
-    protein_name = protein_name,
-    ...
+    protein_name = protein_name
   )
 
   return(p)
@@ -108,13 +105,13 @@ plot_isotonic = function(fit,
                          show_ic50 = FALSE,
                          drug_name = NULL,
                          protein_name = NULL,
-                         x_lab = "dose (nM)",
-                         y_lab = "log2 Intensity",
+                         x_lab = expression(Log[10] ~ "[drug (M)]"),
+                         y_lab = "Log2 Intensity",
                          title = NULL,
                          ci = NULL,
                          legend = FALSE,
                          theme_style = "classic",
-                         original_label = TRUE) {
+                         original_label = FALSE) {
 
   # Construct title if not provided
   if (is.null(title) && !is.null(drug_name) && !is.null(protein_name)) {
@@ -123,11 +120,17 @@ plot_isotonic = function(fit,
     title = "Isotonic Regression Fit"
   }
 
-  # Prepare data
-  fit_df = data.frame(dose = fit$x, y_pred = fit$y_pred)
-  orig_df = data.frame(x = fit$x, y = fit$original_y)
+  if (ratio){
+    y_lab = "Ratio relative to DMSO"
+  } else{
+    y_lab = expression(Log[2] ~ "Intensity")
+  }
 
-  dose_list = log10(c(0, 1, 3, 10, 30, 100, 300, 1000, 3000) + 1)
+  # Prepare data
+  fit_df = data.frame(dose = log10(fit$x), y_pred = fit$y_pred)
+  orig_df = data.frame(x = log10(fit$x ), y = fit$original_y)
+
+  #dose_list = log10(c(0, 1, 3, 10, 30, 100, 300, 1000, 3000) + 1)
 
   # Base plot
   model_fit_plot = ggplot() +
@@ -154,43 +157,48 @@ plot_isotonic = function(fit,
       theme(legend.position = "none")
   }
 
-  if (original_label) {
-    model_fit_plot = model_fit_plot +
-      scale_x_continuous(
-        breaks = dose_list,
-        labels = c("DMSO", "1", "3", "10", "30", "100", "300", "1000", "3000")
-      )
-  }
+ # if (original_label) {
+   # model_fit_plot = model_fit_plot +
+  #    scale_x_continuous(
+  #      breaks = dose_list,
+  #      labels = c("DMSO", "1", "3", "10", "30", "100", "300", "1000", "3000")
+  #    )
+ # }
 
   # Optional IC50
   if (show_ic50) {
     if (ratio) {
       target_response = 0.5
     } else {
-      dmso_idx = which(orig_df$x == 0)
+      dmso_idx = which(orig_df$x == -Inf)
       target_response = mean(orig_df$y[dmso_idx], na.rm = TRUE) - 1
     }
 
     ic50_pred = predict_ic50(fit, target_response = target_response)
     y_ic50 = approx(fit$x, fit$y_pred, xout = ic50_pred)$y
-    ic50_pred_transform = 10^ic50_pred
+    ic50_pred_transform = -log10(ic50_pred) #pIC50
 
     model_fit_plot = model_fit_plot +
-      geom_point(aes(x = ic50_pred, y = y_ic50),
+      geom_point(aes(x = log10(ic50_pred), y = y_ic50),
                  shape = 23, size = 3.5, fill = "red", color = "black") +
-      annotate("text", x = ic50_pred + 0.35, y = y_ic50,
-               label = paste("IC50 =", round(ic50_pred_transform, 2)),
+      annotate("text", x = log10(ic50_pred) + 0.35, y = y_ic50,
+               label = paste("pIC50 =", round(ic50_pred_transform, 2)),
                vjust = -0.5, hjust = 0.5, size = 4, fontface = "bold")
 
     # Show IC50 confidence interval if provided
     if (show_ic50 && !is.null(ci)) {
+
+      ci_lower_M = 10^(-ci$ci_lower)
+      ci_upper_M = 10^(-ci$ci_upper)
+
+
       model_fit_plot = model_fit_plot +
-        geom_segment(aes(x = ci$ci_lower, xend = ci$ci_lower, y = 0, yend = target_response),
+        geom_segment(aes(x = log10(ci_lower_M), xend = log10(ci_lower_M), y = 0, yend = target_response),
                      linetype = "dotted", color = "gray40", linewidth = 0.8) +
-        geom_segment(aes(x = ci$ci_upper, xend = ci$ci_upper, y = 0, yend = target_response),
+        geom_segment(aes(x = log10(ci_upper_M), xend = log10(ci_upper_M), y = 0, yend = target_response),
                      linetype = "dotted", color = "gray40", linewidth = 0.8) +
         annotate("rect",
-                 xmin = ci$ci_lower, xmax = ci$ci_upper,
+                 xmin = log10(ci_lower_M), xmax = log10(ci_upper_M),
                  ymin = 0, ymax = target_response,
                  alpha = 0.1, fill = "red")
     }

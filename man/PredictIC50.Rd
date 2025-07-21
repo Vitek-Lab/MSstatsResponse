@@ -11,7 +11,8 @@ PredictIC50(
   increasing = FALSE,
   transform_dose = TRUE,
   ratio_response = TRUE,
-  bootstrap = TRUE
+  bootstrap = TRUE,
+  numberOfCores = 1
 )
 }
 \arguments{

@@ -1,5 +1,6 @@
 #' Predict IC50 (dose where response is 0.5) for each protein and drug
 #'
+#' @import parallel
 #' @param data A data frame with columns: protein, drug, dose, response.
 #' @param increasing Logical. If TRUE, fit a non-decreasing trend.
 #' @param ratio_response Logical. If TRUE, use ratio response; else use log2 scale.
@@ -15,118 +16,187 @@ PredictIC50 = function(data,
                        increasing = FALSE,
                        transform_dose = TRUE,
                        ratio_response = TRUE,
-                       bootstrap = TRUE) {
+                       bootstrap = TRUE,
+                       numberOfCores = 1) {
 
+  if (numberOfCores == 1){
+    results = .singleCoreIC50(data,
+                              n_samples,
+                              alpha,
+                              increasing,
+                              transform_dose,
+                              ratio_response ,
+                              bootstrap)
+  } else{
+    results = .multiCoreIC50(data,
+                             n_samples,
+                             alpha,
+                             increasing,
+                             transform_dose,
+                             ratio_response ,
+                             bootstrap,
+                             numberOfCores)
+  }
+  return(results)
+}
+
+.multiCoreIC50 = function(data,
+                          n_samples,
+                          alpha,
+                          increasing,
+                          transform_dose,
+                          ratio_response ,
+                          bootstrap,
+                          numberOfCores){
   protein_list = unique(data$protein)
   drug_list = unique(data$drug[data$drug != "DMSO"])
   results_list = list()
+  function_environment = environment()
+  cl = parallel::makeCluster(numberOfCores)
 
-  for (drug_type in drug_list) {
-    data_subset = data %>% dplyr::filter(drug %in% c("DMSO", drug_type))
+  loop_list = data %>% distinct(drug, protein) %>% filter(drug != "DMSO")
 
-    for (prot in protein_list) {
-      tryCatch({
-        suppressWarnings({
-          df = data_subset %>% dplyr::filter(protein == prot)
-          x = df$dose
-          y = df$response
+  test_results = parLapply(cl, seq_len(nrow(loop_list)), function(i){
+    temp = loop_list[i, ]
+    data_subset = data %>% dplyr::filter(drug %in% c("DMSO", temp[[1]]) &
+                                           protein == temp[[2]])
+    results_list[[i]] = .calcSingleIC50(data_subset,
+                    n_samples,
+                    alpha,
+                    increasing,
+                    transform_dose,
+                    ratio_response,
+                    bootstrap,
+                    temp[[2]],
+                    temp[[1]])
+  })
 
-          order_idx = order(x)
-          x = x[order_idx]
-          y = y[order_idx]
+  parallel::stopCluster(cl)
+  test_results = rbindlist(test_results)
+  return(test_results)
+}
 
-          if (ratio_response) {
-            y_unlog = 2^y
-            baseline = mean(y_unlog[x == 0], na.rm = TRUE)
-            y_ratio = y_unlog / baseline
+.singleCoreIC50 = function(data,
+                           n_samples,
+                           alpha,
+                           increasing,
+                           transform_dose,
+                           ratio_response ,
+                           bootstrap
+                           ){
+  loop_list = data %>% distinct(drug, protein) %>% filter(drug != "DMSO")
 
-            fit_try = fit_isotonic_regression(x, y,
-                                              increasing = increasing,
-                                              transform_x = transform_dose,
-                                              ratio_y = TRUE,
-                                              test_significance = FALSE)
-            ic50_est = predict_ic50(fit_try, target_response = 0.5)
+  results_list = list()
 
-            if (is.na(ic50_est)) {
-              results_list[[length(results_list) + 1]] = data.frame(
-                protein = prot,
-                drug = drug_type,
-                IC50 = NA,
-                IC50_lower_bound = NA,
-                IC50_upper_bound = NA
-              )
-              next
-            }
-
-            ic50 = 10^ic50_est
-
-            if (bootstrap) {
-              bootstrap_res = bootstrap_ic50(
-                dose = x, response = y_ratio,
-                n_samples = n_samples, alpha = alpha,
-                increasing = increasing
-              )
-              lower = as.numeric(bootstrap_res$ci_lower_transform)
-              upper = as.numeric(bootstrap_res$ci_upper_transform)
-            } else {
-              lower = NA
-              upper = NA
-            }
-
-          } else {
-            dmso_mean = mean(y[x == 0], na.rm = TRUE)
-            target_response = dmso_mean - 1
-
-            fit_try = fit_isotonic_regression(x, y,
-                                              increasing = increasing,
-                                              transform_x = transform_dose,
-                                              ratio_y = FALSE,
-                                              test_significance = FALSE)
-            ic50_est = predict_ic50(fit_try, target_response = target_response)
-
-            if (is.na(ic50_est)) {
-              results_list[[length(results_list) + 1]] = data.frame(
-                protein = prot,
-                drug = drug_type,
-                IC50 = NA,
-                IC50_lower_bound = NA,
-                IC50_upper_bound = NA
-              )
-              next
-            }
-
-            ic50 = 10^ic50_est
-
-            if (bootstrap) {
-              bootstrap_res = bootstrap_ic50_logscale(
-                x = x, y = y,
-                n_samples = n_samples, alpha = alpha,
-                increasing = increasing
-              )
-              lower = as.numeric(bootstrap_res$ci_lower_transform)
-              upper = as.numeric(bootstrap_res$ci_upper_transform)
-            } else {
-              lower = NA
-              upper = NA
-            }
-          }
-
-          results_list[[length(results_list) + 1]] = data.frame(
-            protein = prot,
-            drug = drug_type,
-            IC50 = ic50,
-            IC50_lower_bound = lower,
-            IC50_upper_bound = upper
-          )
-        })
-      }, error = function(e) {
-        cat("ERROR for", prot, "with", drug_type, ":", conditionMessage(e), "\n")
-      })
-    }
+  for (i in seq_len(nrow(loop_list))) {
+    temp = loop_list[i, ]
+    data_subset = data %>% dplyr::filter(drug %in% c("DMSO", temp[[1]]) &
+                                           protein == temp[[2]])
+    results_list[[i]] = .calcSingleIC50(data_subset,
+                      n_samples,
+                      alpha,
+                      increasing,
+                      transform_dose,
+                      ratio_response,
+                      bootstrap,
+                      temp[[2]],
+                      temp[[1]])
   }
 
-  final_df = do.call(rbind, results_list)
-  return(final_df)
+  test_results = rbindlist(results_list)
+
+  return(test_results)
+
+}
+
+.calcSingleIC50 = function(df,
+                           n_samples,
+                           alpha,
+                           increasing,
+                           transform_dose,
+                           ratio_response ,
+                           bootstrap,
+                           prot,
+                           drug_type
+                           ){
+
+
+
+  x = df$dose
+  y = df$response
+
+  order_idx = order(x)
+  x = x[order_idx]
+  y = y[order_idx]
+
+  result = NULL
+
+  y_unlog = 2^y
+  baseline = mean(y_unlog[x == 0], na.rm = TRUE)
+  y_ratio = y_unlog / baseline
+
+  if (!ratio_response){
+    dmso_mean = mean(y[x == 0], na.rm = TRUE)
+    target_response = dmso_mean - 1
+  } else {
+    target_response = .5
+  }
+
+
+  tryCatch({
+    fit_try = fit_isotonic_regression(x, y,
+                                increasing = increasing,
+                                transform_x = transform_dose,
+                                ratio_y = ratio_response,
+                                test_significance = FALSE)
+    ic50_est = predict_ic50(fit_try, target_response = target_response)
+    ic50_est = ifelse(is.na(ic50_est), NA, ic50_est)
+    }, error = function(e) {
+      ic50_est = NA
+      })
+
+   if (is.na(ic50_est)) {
+    result = data.frame(
+      protein = prot,
+      drug = drug_type,
+      IC50 = NA,
+      IC50_lower_bound = NA,
+      IC50_upper_bound = NA
+    )
+  } else {
+
+    ic50 = -log10(ic50_est)
+
+    if (bootstrap) {
+      if(ratio_response){
+        bootstrap_res = bootstrap_ic50(
+          dose = x, response = y,
+          n_samples = n_samples, alpha = alpha,
+          increasing = increasing
+        )
+      } else {
+        bootstrap_res = bootstrap_ic50_logscale(
+          x = x, y = y,
+          n_samples = n_samples, alpha = alpha,
+          increasing = increasing
+        )
+      }
+      lower = as.numeric(bootstrap_res$ci_lower_transform)
+      upper = as.numeric(bootstrap_res$ci_upper_transform)
+    } else {
+      lower = NA
+      upper = NA
+    }
+    result = data.frame(
+      protein = prot,
+      drug = drug_type,
+      IC50 = ic50,
+      IC50_lower_bound = lower,
+      IC50_upper_bound = upper
+    )
+  }
+
+  return(result)
 }
 
 
@@ -214,9 +284,9 @@ bootstrap_ic50 = function(dose, response, n_samples = 1000, alpha = 0.10,
     mean_ic50 = mean_ic50,
     ci_lower = ci_lower,
     ci_upper = ci_upper,
-    mean_ic50_transform = 10^mean_ic50,
-    ci_lower_transform = 10^ci_lower,
-    ci_upper_transform = 10^ci_upper
+    mean_ic50_transform = -log10(mean_ic50),
+    ci_lower_transform = -log10(ci_lower),
+    ci_upper_transform = -log10(ci_upper)
   ))
 }
 
@@ -277,8 +347,8 @@ bootstrap_ic50_logscale = function(x, y, n_samples = 1000, alpha = 0.05,
     mean_ic50 = mean_ic50,
     ci_lower = ci_lower,
     ci_upper = ci_upper,
-    mean_ic50_transform = 10^mean_ic50,
-    ci_lower_transform = 10^ci_lower,
-    ci_upper_transform = 10^ci_upper
+    mean_ic50_transform = -log10(mean_ic50),
+    ci_lower_transform = -log10(ci_lower),
+    ci_upper_transform = -log10(ci_upper)
   ))
 }

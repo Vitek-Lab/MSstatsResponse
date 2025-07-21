@@ -9,7 +9,8 @@ MSstatsPrepareDoseResponseFit(
   dose_column = "dose",
   drug_column = "drug",
   protein_column = "Protein",
-  log_abundance_column = "LogIntensities"
+  log_abundance_column = "LogIntensities",
+  transform_nM_to_M = NULL
 )
 }
 \arguments{

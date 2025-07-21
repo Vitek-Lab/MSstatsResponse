@@ -50,7 +50,8 @@ MSstatsPrepareDoseResponseFit = function(data,
                                          dose_column = "dose",
                                          drug_column = "drug",
                                          protein_column = "Protein",
-                                         log_abundance_column = "LogIntensities") {
+                                         log_abundance_column = "LogIntensities",
+                                         transform_nM_to_M = NULL) {
   # Check input
   stopifnot(is.data.frame(data))
   required_cols = c(dose_column,drug_column, protein_column, log_abundance_column)
@@ -64,6 +65,11 @@ MSstatsPrepareDoseResponseFit = function(data,
   # Select and rename relevant columns
   subset_df = data[, c(protein_column, drug_column, dose_column, log_abundance_column)]
   colnames(subset_df) = c("protein", "drug", "dose", "response")
+
+  if (transform_nM_to_M){
+    subset_df$dose_nM = subset_df$dose
+    subset_df$dose = subset_df$dose * 10^-9
+  }
 
   return(subset_df)
 }

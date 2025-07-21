@@ -110,6 +110,9 @@ A data frame with two columns:
 dia_normalized$ProteinLevelData = dia_normalized$ProteinLevelData %>%
   mutate(dose = ConvertGroupToNumericDose(GROUP)$dose_nM, 
          drug = ConvertGroupToNumericDose(GROUP)$drug)
+
+# test nM to M dose 
+dia_normalized$ProteinLevelData$dose = dia_normalized$ProteinLevelData$dose * 10^-9
 ```
 
 
@@ -160,7 +163,8 @@ The function performs the following steps:
 # use MSstatsResponse for drug-response drug-interaction 
 
 response_results = DoseResponseFit(dia_pl,
-                                   increasing = FALSE)
+                                   increasing = FALSE,
+                                   transform_dose = TRUE)
 
 response_results[1:3,]
 ```
@@ -190,9 +194,40 @@ Bootstrapped confidence intervals are derived from the empirical distribution of
 
 ```{r, message=F, warning=F, results='hide'}
 # test for all the possible pairs of conditions
-ic50_predictions = PredictIC50(dia_pl,
-                               ratio_response = TRUE)
-ic50_predictions[1:3,]
+library(data.table)
+PredictIC50(dia_pl,
+                               ratio_response = TRUE,
+                               transform_dose = TRUE)
+
+PredictIC50(dia_pl,
+                               ratio_response = FALSE,
+                               transform_dose = TRUE)
+#ic50_predictions[1:3,]
+
+#-log10(ic50_predictions$IC50 * 10^-9)
+#-log10(ic50_predictions$IC50_lower_bound * 10^-9)
+#-log10(ic50_predictions$IC50_upper_bound * 10^-9)
+
+
+PredictIC50(dia_pl,
+                               ratio_response = TRUE,
+                               transform_dose = TRUE)
+PredictIC50Parallel(dia_pl,
+                        ratio_response = TRUE,
+                        transform_dose = TRUE)
+
+ic50_test_res = PredictIC50(dia_pl,
+            n_samples = 1000,
+            alpha = 0.10,
+            increasing = FALSE,
+            transform_dose = TRUE,
+            ratio_response = TRUE,
+            bootstrap = TRUE,
+            numberOfCores = 2)
+ic50_test_res
+
+neg_control = dia_pl %>%
+  filter(protein == 'Q9P2K8')
 ```
 
 ## 4. Visualization
@@ -223,9 +258,9 @@ VisualizeResponseProtein(
   data = dia_pl,
   protein_name = "P12931",
   drug_name = "Dasatinib",
-  ratio_response = FALSE,
+  ratio_response = TRUE,
   show_ic50 = TRUE,
-  x_lab = "dose (nM)",
+ add_ci = TRUE,
   y_lab = "Relative Response"
 )
 
@@ -233,9 +268,46 @@ VisualizeResponseProtein(
   data = dia_pl,
   protein_name = "P00519",
   drug_name = "Dasatinib",
-  ratio_response = TRUE,
+  ratio_response = FALSE,
   show_ic50 = TRUE,
+  add_ci = TRUE,
   x_lab = "dose (nM)",
   y_lab = "Relative Response"
 )
+
 ```
+
+```{r}
+prot_temp = 'p_strong_interaction_1'
+sim_ic50_ratio %>%
+  filter(protein == prot_temp)
+sim_ic50_log %>%
+  filter(protein == prot_temp)
+
+protien_list = sim_ic50_ratio$protein[c(1:10,1001:1010)]
+
+for (i in seq_along(protien_list)){
+  
+  prot_temp = protien_list[i]
+  
+  suppressWarnings({
+  
+    ratio_temp = VisualizeResponseProtein(sim_data,
+                         drug_name = 'drug',
+                         protein_name = prot_temp,
+                         ratio_response = TRUE,
+                         show_ic50 = TRUE,
+                         add_ci = TRUE)
+    print(ratio_temp)
+    log_temp = VisualizeResponseProtein(sim_data,
+                         drug_name = 'drug',
+                         protein_name = prot_temp,
+                         ratio_response = FALSE,
+                         show_ic50 = TRUE,
+                         add_ci = TRUE)
+    print(log_temp)
+  })
+  
+}
+```
+
