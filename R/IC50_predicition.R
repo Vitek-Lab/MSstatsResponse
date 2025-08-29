@@ -1,4 +1,4 @@
-#' Predict IC50 (dose where response is 0.5) for each protein and drug
+#' Predict IC50 (dose where response = target) for each protein and drug
 #'
 #' @import parallel
 #' @param data A data frame with columns: protein, drug, dose, response.
@@ -7,7 +7,8 @@
 #' @param transform_dose Logical. If TRUE, applies log10(dose + 1) transformation. Default is TRUE.
 #' @param bootstrap Logical. If FALSE, skip confidence interval bootstrap estimation and only return IC50.
 #' @param n_samples Number of bootstrap samples. Default = 1000.
-#' @param alpha Confidence level. Default = 0.05.
+#' @param alpha Confidence level. Default = 0.10.
+#' @param target_response Numeric, the response fraction (e.g., 0.5, 0.25, 0.75). Default = 0.5.
 #' @return A data frame with columns: protein, drug, IC50, lower CI, upper CI.
 #' @export
 PredictIC50 = function(data,
@@ -17,7 +18,8 @@ PredictIC50 = function(data,
                        transform_dose = TRUE,
                        ratio_response = TRUE,
                        bootstrap = TRUE,
-                       numberOfCores = 1) {
+                       numberOfCores = 1,
+                       target_response = 0.5) {
 
   if (numberOfCores == 1){
     results = .singleCoreIC50(data,
@@ -25,17 +27,19 @@ PredictIC50 = function(data,
                               alpha,
                               increasing,
                               transform_dose,
-                              ratio_response ,
-                              bootstrap)
+                              ratio_response,
+                              bootstrap,
+                              target_response)
   } else{
     results = .multiCoreIC50(data,
                              n_samples,
                              alpha,
                              increasing,
                              transform_dose,
-                             ratio_response ,
+                             ratio_response,
                              bootstrap,
-                             numberOfCores)
+                             numberOfCores,
+                             target_response)
   }
   return(results)
 }
@@ -45,30 +49,36 @@ PredictIC50 = function(data,
                           alpha,
                           increasing,
                           transform_dose,
-                          ratio_response ,
+                          ratio_response,
                           bootstrap,
-                          numberOfCores){
+                          numberOfCores,
+                          target_response){
   protein_list = unique(data$protein)
   drug_list = unique(data$drug[data$drug != "DMSO"])
   results_list = list()
-  function_environment = environment()
   cl = parallel::makeCluster(numberOfCores)
-
+  parallel::clusterExport(cl, varlist = c("target_response", ".calcSingleIC50", "fit_isotonic_regression",
+                                          "predict_ic50", "bootstrap_ic50", "bootstrap_ic50_logscale"),
+                          envir = environment())
   loop_list = data %>% distinct(drug, protein) %>% filter(drug != "DMSO")
 
+  # FIX: explicitly pass all args including target_response
   test_results = parLapply(cl, seq_len(nrow(loop_list)), function(i){
     temp = loop_list[i, ]
-    data_subset = data %>% dplyr::filter(drug %in% c("DMSO", temp[[1]]) &
-                                           protein == temp[[2]])
-    results_list[[i]] = .calcSingleIC50(data_subset,
-                    n_samples,
-                    alpha,
-                    increasing,
-                    transform_dose,
-                    ratio_response,
-                    bootstrap,
-                    temp[[2]],
-                    temp[[1]])
+    data_subset = data %>%
+      dplyr::filter(drug %in% c("DMSO", temp[[1]]) & protein == temp[[2]])
+    .calcSingleIC50(
+      df = data_subset,
+      n_samples = n_samples,
+      alpha = alpha,
+      increasing = increasing,
+      transform_dose = transform_dose,
+      ratio_response = ratio_response,
+      bootstrap = bootstrap,
+      prot = temp[[2]],
+      drug_type = temp[[1]],
+      target_response = target_response
+    )
   })
 
   parallel::stopCluster(cl)
@@ -81,11 +91,10 @@ PredictIC50 = function(data,
                            alpha,
                            increasing,
                            transform_dose,
-                           ratio_response ,
-                           bootstrap
-                           ){
+                           ratio_response,
+                           bootstrap,
+                           target_response){
   loop_list = data %>% distinct(drug, protein) %>% filter(drug != "DMSO")
-
   results_list = list()
 
   for (i in seq_len(nrow(loop_list))) {
@@ -93,20 +102,19 @@ PredictIC50 = function(data,
     data_subset = data %>% dplyr::filter(drug %in% c("DMSO", temp[[1]]) &
                                            protein == temp[[2]])
     results_list[[i]] = .calcSingleIC50(data_subset,
-                      n_samples,
-                      alpha,
-                      increasing,
-                      transform_dose,
-                      ratio_response,
-                      bootstrap,
-                      temp[[2]],
-                      temp[[1]])
+                                        n_samples,
+                                        alpha,
+                                        increasing,
+                                        transform_dose,
+                                        ratio_response,
+                                        bootstrap,
+                                        temp[[2]],
+                                        temp[[1]],
+                                        target_response)
   }
 
   test_results = rbindlist(results_list)
-
   return(test_results)
-
 }
 
 .calcSingleIC50 = function(df,
@@ -114,13 +122,11 @@ PredictIC50 = function(data,
                            alpha,
                            increasing,
                            transform_dose,
-                           ratio_response ,
+                           ratio_response,
                            bootstrap,
                            prot,
-                           drug_type
-                           ){
-
-
+                           drug_type,
+                           target_response){
 
   x = df$dose
   y = df$response
@@ -129,33 +135,32 @@ PredictIC50 = function(data,
   x = x[order_idx]
   y = y[order_idx]
 
-  result = NULL
-
   y_unlog = 2^y
   baseline = mean(y_unlog[x == 0], na.rm = TRUE)
   y_ratio = y_unlog / baseline
 
   if (!ratio_response){
     dmso_mean = mean(y[x == 0], na.rm = TRUE)
-    target_response = dmso_mean - 1
+    adjusted_target_response = dmso_mean + log2(target_response)
   } else {
-    target_response = .5
+    adjusted_target_response = target_response
   }
 
+  result = NULL
 
   tryCatch({
     fit_try = fit_isotonic_regression(x, y,
-                                increasing = increasing,
-                                transform_x = transform_dose,
-                                ratio_y = ratio_response,
-                                test_significance = FALSE)
-    ic50_est = predict_ic50(fit_try, target_response = target_response)
+                                      increasing = increasing,
+                                      transform_x = transform_dose,
+                                      ratio_y = ratio_response,
+                                      test_significance = FALSE)
+    ic50_est = predict_ic50(fit_try, target_response = adjusted_target_response)
     ic50_est = ifelse(is.na(ic50_est), NA, ic50_est)
-    }, error = function(e) {
-      ic50_est = NA
-      })
+  }, error = function(e) {
+    ic50_est = NA
+  })
 
-   if (is.na(ic50_est)) {
+  if (is.na(ic50_est)) {
     result = data.frame(
       protein = prot,
       drug = drug_type,
@@ -164,7 +169,6 @@ PredictIC50 = function(data,
       IC50_upper_bound = NA
     )
   } else {
-
     ic50 = -log10(ic50_est)
 
     if (bootstrap) {
@@ -172,13 +176,15 @@ PredictIC50 = function(data,
         bootstrap_res = bootstrap_ic50(
           dose = x, response = y,
           n_samples = n_samples, alpha = alpha,
-          increasing = increasing
+          increasing = increasing,
+          target_response = target_response
         )
       } else {
         bootstrap_res = bootstrap_ic50_logscale(
           x = x, y = y,
           n_samples = n_samples, alpha = alpha,
-          increasing = increasing
+          increasing = increasing,
+          target_response = target_response
         )
       }
       lower = as.numeric(bootstrap_res$ci_lower_transform)
@@ -198,7 +204,6 @@ PredictIC50 = function(data,
 
   return(result)
 }
-
 
 
 #' Predict IC50 (dose where response is 0.5 of DMSO)
@@ -236,6 +241,7 @@ predict_ic50 = function(fit, target_response = 0.5) {
   return(NA)
 }
 
+
 #' Bootstrap IC50 Estimates and Confidence Interval (ratio scale)
 #'
 #' @param dose Numeric vector of dose values.
@@ -243,16 +249,17 @@ predict_ic50 = function(fit, target_response = 0.5) {
 #' @param n_samples Number of bootstrap samples (default = 1000).
 #' @param alpha Significance level for confidence interval (default = 0.10).
 #' @param increasing Logical. Fit non-decreasing if TRUE.
+#' @param target_response Numeric value for response level (default = 0.5).
 #'
 #' @return List with mean IC50, CI bounds, and transformed estimates.
 #' @export
 bootstrap_ic50 = function(dose, response, n_samples = 1000, alpha = 0.10,
-                          increasing = FALSE) {
+                          increasing = FALSE, target_response = 0.5,
+                          transform_x = TRUE) {
   ic50_vals = numeric(n_samples)
   df = data.frame(dose = dose, response = response)
 
   for (i in seq_len(n_samples)) {
-    # Sample with replacement within each dose group
     boot_df = df %>%
       dplyr::group_by(dose) %>%
       dplyr::sample_frac(size = 1, replace = TRUE) %>%
@@ -264,10 +271,10 @@ bootstrap_ic50 = function(dose, response, n_samples = 1000, alpha = 0.10,
     tryCatch({
       fit_sample = fit_isotonic_regression(x_sample, y_sample,
                                            increasing = increasing,
-                                           transform_x = TRUE,
+                                           transform_x = transform_x,
                                            ratio_y = TRUE,
                                            test_significance = FALSE)
-      ic50_est = predict_ic50(fit_sample)
+      ic50_est = predict_ic50(fit_sample, target_response = target_response)
       ic50_vals[i] = ifelse(is.na(ic50_est), NA, ic50_est)
     }, error = function(e) {
       ic50_vals[i] = NA
@@ -297,16 +304,16 @@ bootstrap_ic50 = function(dose, response, n_samples = 1000, alpha = 0.10,
 #' @param n_samples Number of bootstrap samples (default = 1000).
 #' @param alpha Significance level for confidence interval (default = 0.05).
 #' @param increasing Logical. Fit non-decreasing if TRUE.
+#' @param target_response Numeric value for response level (default = 0.5).
 #'
 #' @return List with mean IC50, CI bounds, and transformed estimates.
 #' @export
 bootstrap_ic50_logscale = function(x, y, n_samples = 1000, alpha = 0.05,
-                                   increasing = FALSE) {
+                                   increasing = FALSE, target_response = 0.5) {
   ic50_vals = numeric(n_samples)
   df = data.frame(dose = x, response = y)
 
   for (i in seq_len(n_samples)) {
-    # Sample with replacement within each dose group
     boot_df = df %>%
       dplyr::group_by(dose) %>%
       dplyr::sample_frac(size = 1, replace = TRUE) %>%
@@ -322,7 +329,7 @@ bootstrap_ic50_logscale = function(x, y, n_samples = 1000, alpha = 0.05,
     }
 
     mean_dmso = mean(y_sample[dmso_idx], na.rm = TRUE)
-    target_response = mean_dmso - 1
+    adjusted_target_response = mean_dmso + log2(target_response)
 
     tryCatch({
       fit_sample = fit_isotonic_regression(x_sample, y_sample,
@@ -330,7 +337,7 @@ bootstrap_ic50_logscale = function(x, y, n_samples = 1000, alpha = 0.05,
                                            transform_x = TRUE,
                                            ratio_y = FALSE,
                                            test_significance = FALSE)
-      ic50_est = predict_ic50(fit_sample, target_response = target_response)
+      ic50_est = predict_ic50(fit_sample, target_response = adjusted_target_response)
       ic50_vals[i] = ifelse(is.na(ic50_est), NA, ic50_est)
     }, error = function(e) {
       ic50_vals[i] = NA

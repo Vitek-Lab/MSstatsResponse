@@ -180,8 +180,8 @@ fit_isotonic_regression = function(x, y, w = rep(1, length(y)),
     null_pred = rep(null_model, length(y))
     sse_full = sum((y - y_pred_new)^2)
     sse_null = sum((y - null_pred)^2)
-    #df_full = length(y) - length(unique(x))
-    df_full = length(y) - k_star # less conservative approach (pooling k's)
+    df_full = length(y) - length(unique(x))
+    #df_full = length(y) - k_star # less conservative approach (pooling k's)
     df_null = length(y) - 1
     f_stat = ((sse_null - sse_full) / (df_null - df_full)) / (sse_full / df_full)
     p_value = 1 - pf(f_stat, df_null - df_full, df_full)

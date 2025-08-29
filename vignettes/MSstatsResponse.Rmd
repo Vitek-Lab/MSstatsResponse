@@ -74,6 +74,7 @@ First, pre-process data using base MSstats:
 
 
 # Data load / subset 
+dia_pl = readRDS("../../../Chemoproteomics/Chemoproteomics_Pfizer/Pfizer/data/processed_data_MSstats/dia_proteinlevel.RDS")
 #dia_norm_temp = readRDS("../../Chemoproteomics/Chemoproteomics_Pfizer/Pfizer/data/processed_data_MSstats/dia_median_norm.RDS")
 #dia_norm_temp$ProteinLevelData = dia_norm_temp$ProteinLevelData %>%
  # filter(Protein %in% c("P00519","P12931","Q9P2K8"))
@@ -128,6 +129,12 @@ This function prepares the dataset for dose-response analysis by standardizing c
 - `log_abundance_column`: Column name with log-transformed abundance values (e.g., `"LogIntensities"`)
 
 ```{r}
+head(dia_pl)
+dia_pl$drug = 'dasatinib' 
+dia_pl = MSstatsPrepareDoseResponseFit(dia_pl,
+                                       protein_column = 'protein',
+                                       transform_nM_to_M = TRUE)
+
 # Convert to MSstatsResponse data format via MSstatsPrepareDoseResponseFit()
 dia_pl = MSstatsPrepareDoseResponseFit(dia_normalized$ProteinLevelData)
 dia_pl[1:27,]
@@ -165,7 +172,7 @@ The function performs the following steps:
 response_results = DoseResponseFit(dia_pl,
                                    increasing = FALSE,
                                    transform_dose = TRUE)
-
+libr
 response_results[1:3,]
 ```
 
@@ -310,4 +317,17 @@ for (i in seq_along(protien_list)){
   
 }
 ```
+
+Future Experiment  planing 
+```{r}
+setwd("../")
+#c(0, 1, 3, 10, 30, 100, 300, 1000, 3000)
+FutureExperimentSimulation(N_proteins = 3000, 
+                           N_rep = 3, 
+                           N_Control_Rep = 3, 
+                           Concentrations = c(0, 1, 3, 10, 30, 100, 300, 1000, 3000), 
+                           IC50_Prediction = FALSE)
+
+```
+
 

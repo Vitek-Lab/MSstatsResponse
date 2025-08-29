@@ -9,7 +9,9 @@ bootstrap_ic50(
   response,
   n_samples = 1000,
   alpha = 0.1,
-  increasing = FALSE
+  increasing = FALSE,
+  target_response = 0.5,
+  transform_x = TRUE
 )
 }
 \arguments{
@@ -22,6 +24,8 @@ bootstrap_ic50(
 \item{alpha}{Significance level for confidence interval (default = 0.10).}
 
 \item{increasing}{Logical. Fit non-decreasing if TRUE.}
+
+\item{target_response}{Numeric value for response level (default = 0.5).}
 }
 \value{
 List with mean IC50, CI bounds, and transformed estimates.

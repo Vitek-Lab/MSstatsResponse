@@ -2,7 +2,7 @@
 % Please edit documentation in R/IC50_predicition.R
 \name{PredictIC50}
 \alias{PredictIC50}
-\title{Predict IC50 (dose where response is 0.5) for each protein and drug}
+\title{Predict IC50 (dose where response = target) for each protein and drug}
 \usage{
 PredictIC50(
   data,
@@ -12,7 +12,8 @@ PredictIC50(
   transform_dose = TRUE,
   ratio_response = TRUE,
   bootstrap = TRUE,
-  numberOfCores = 1
+  numberOfCores = 1,
+  target_response = 0.5
 )
 }
 \arguments{
@@ -20,7 +21,7 @@ PredictIC50(
 
 \item{n_samples}{Number of bootstrap samples. Default = 1000.}
 
-\item{alpha}{Confidence level. Default = 0.05.}
+\item{alpha}{Confidence level. Default = 0.10.}
 
 \item{increasing}{Logical. If TRUE, fit a non-decreasing trend.}
 
@@ -29,10 +30,12 @@ PredictIC50(
 \item{ratio_response}{Logical. If TRUE, use ratio response; else use log2 scale.}
 
 \item{bootstrap}{Logical. If FALSE, skip confidence interval bootstrap estimation and only return IC50.}
+
+\item{target_response}{Numeric, the response fraction (e.g., 0.5, 0.25, 0.75). Default = 0.5.}
 }
 \value{
 A data frame with columns: protein, drug, IC50, lower CI, upper CI.
 }
 \description{
-Predict IC50 (dose where response is 0.5) for each protein and drug
+Predict IC50 (dose where response = target) for each protein and drug
 }

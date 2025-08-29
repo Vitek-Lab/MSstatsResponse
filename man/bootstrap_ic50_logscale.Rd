@@ -9,7 +9,8 @@ bootstrap_ic50_logscale(
   y,
   n_samples = 1000,
   alpha = 0.05,
-  increasing = FALSE
+  increasing = FALSE,
+  target_response = 0.5
 )
 }
 \arguments{
@@ -22,6 +23,8 @@ bootstrap_ic50_logscale(
 \item{alpha}{Significance level for confidence interval (default = 0.05).}
 
 \item{increasing}{Logical. Fit non-decreasing if TRUE.}
+
+\item{target_response}{Numeric value for response level (default = 0.5).}
 }
 \value{
 List with mean IC50, CI bounds, and transformed estimates.

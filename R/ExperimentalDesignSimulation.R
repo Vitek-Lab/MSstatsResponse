@@ -57,7 +57,8 @@ FutureExperimentSimulation = function(N_proteins = 300,
     Simulated_Data = simulated_data,
     MSstats_Simulated_Data = msstats_format_simulated_data,
     DoseResponseFit_Results = Interaction_Res,
-    Hit_Rates = Hit_Rates_Plot,
+    Hit_Rates_Plot = Hit_Rates_Plot$plot,
+    Hit_Rates_Data = Hit_Rates_Plot$plot_data,
     PredictIC50_Results =   IC50_Res))
 
 }
@@ -269,7 +270,8 @@ plot_hit_rate_MSstatsResponse = function(results, rep_count,concentration_count 
       legend.position = "none"
     )
 
-  print(p)
+  #print(p)
+  return(list(plot = p, plot_data = plot_data))
 }
 
 
