@@ -2,25 +2,51 @@
 % Please edit documentation in R/ExperimentalDesignSimulation.R
 \name{FutureExperimentSimulation}
 \alias{FutureExperimentSimulation}
-\title{Test future experimental design using simulated data}
+\title{Test future experimental design using simulated data with user-defined or default templates}
 \usage{
 FutureExperimentSimulation(
   N_proteins = 300,
   N_rep = 3,
   N_Control_Rep = NULL,
   Concentrations = c(0, 1, 3, 10, 30, 100, 300, 1000, 3000),
-  IC50_Prediction = FALSE
+  IC50_Prediction = FALSE,
+  data = NULL,
+  strong_proteins = NULL,
+  weak_proteins = NULL,
+  no_interaction_proteins = NULL,
+  drug_name = NULL
 )
 }
 \arguments{
-\item{concentrations}{list of drug concentrations (in nM scale) in sim experiment}
+\item{N_proteins}{Number of proteins to simulate. Default = 300.}
 
-\item{rep}{number of replicates for each drug concentration}
+\item{N_rep}{Number of replicates for each drug concentration. Default = 3.}
 
-\item{template}{real protein level data representing different level of interactions}
+\item{N_Control_Rep}{Number of control replicates. If NULL, uses N_rep.}
 
-\item{outlier_prob}{probability of sample outlier}
+\item{Concentrations}{Numeric vector of drug concentrations (in nM scale).
+Default = c(0, 1, 3, 10, 30, 100, 300, 1000, 3000).}
+
+\item{IC50_Prediction}{Logical. If TRUE, perform IC50 prediction. Default = FALSE.}
+
+\item{data}{Optional. User's prepared dose-response data (e.g., from MSstatsPrepareDoseResponseFit).
+If provided, will extract templates from this data instead of using defaults.}
+
+\item{strong_proteins}{Character vector of protein IDs to use as strong interaction templates.
+Only used if data is provided.}
+
+\item{weak_proteins}{Character vector of protein IDs to use as weak interaction templates.
+Only used if data is provided.}
+
+\item{no_interaction_proteins}{Character vector of protein IDs to use as no interaction templates.
+Only used if data is provided.}
+
+\item{drug_name}{Character. Name of drug to extract templates for. Default = first non-DMSO drug in data.}
+}
+\value{
+A list containing simulated data, MSstats formatted data, dose-response
+fit results, hit rate plots, and optionally IC50 predictions.
 }
 \description{
-Test future experimental design using simulated data
+Test future experimental design using simulated data with user-defined or default templates
 }

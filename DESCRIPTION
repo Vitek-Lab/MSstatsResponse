@@ -1,7 +1,7 @@
 Package: MSstatsResponse
 Type: Package
 Title: Statistical Methods for Chemoproteomics Dose-Response Analysis
-Version: 0.1.0
+Version: 0.99.0
 Authors@R: c(
     person(
       "Sarah", "Szvetecz",
@@ -17,13 +17,18 @@ RoxygenNote: 7.3.2
 Imports:
     ggplot2,
     dplyr,
-    stats
+    stats,
+    parallel,
+    data.table
 Suggests:
     MSstats,
     MSstatsTMT,
     tidyverse,
     boot,
     knitr,
-    rmarkdown
+    rmarkdown,
+    BiocStyle,
+    testthat
 VignetteBuilder: knitr
 Roxygen: list(markdown = TRUE)
+biocViews: Proteomics, MassSpectrometry, StatisticalMethod

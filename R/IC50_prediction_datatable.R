@@ -1,6 +1,6 @@
 #' Parallel version of PredictIC50 function
 #'
-#' Runs PredictIC50 on the entire data set in parallel across proteins.
+#' Runs PredictIC50 on the entire dataset in parallel across proteins.
 #'
 #' @param data A data frame with columns: protein, drug, dose, response.
 #' @param n_samples Number of bootstrap samples. Default = 1000.
@@ -13,6 +13,8 @@
 #'
 #' @return A data frame with columns: protein, drug, IC50, lower CI, upper CI.
 #' @export
+#' @importFrom parallel makeCluster parLapply stopCluster clusterExport
+#' @import dplyr
 PredictIC50Parallel = function(data,
                                n_samples = 1000,
                                alpha = 0.10,
@@ -22,43 +24,55 @@ PredictIC50Parallel = function(data,
                                bootstrap = TRUE,
                                numberOfCores = 2) {
 
-  library(parallel)
-
   protein_list = unique(data$protein)
-  cl = makeCluster(numberOfCores)
+
+  # Create cluster for parallel processing
+  cl = parallel::makeCluster(numberOfCores)
+
+  # Set up environment for cluster
   function_environment = environment()
 
-  # Export all required objects and functions
-  clusterExport(cl,
-                varlist = c("data", "PredictIC50", "n_samples", "alpha",
-                            "increasing", "transform_dose", "ratio_response", "bootstrap"),
-                envir = function_environment)
+  # Export all required objects and functions to cluster workers
+  parallel::clusterExport(cl,
+                          varlist = c("data", "PredictIC50", "n_samples", "alpha",
+                                      "increasing", "transform_dose", "ratio_response", "bootstrap"),
+                          envir = function_environment)
 
-  cat(paste0("Number of proteins to process: ", length(protein_list)),
-      sep = "\n", file = "PredictIC50_parallel_log_progress.log")
+  # Log progress
+  message(paste0("Number of proteins to process: ", length(protein_list)))
 
-  results_list = parLapply(cl, seq_along(protein_list), function(i) {
-    prot = protein_list[i]
+  # Create list of protein-drug combinations to process
+  loop_list = data %>%
+    dplyr::distinct(drug, protein) %>%
+    dplyr::filter(drug != "DMSO")
+
+  # Run parallel processing
+  results_list = parallel::parLapply(cl, seq_len(nrow(loop_list)), function(i) {
+    temp = loop_list[i, ]
+
+    # Log progress every 50 proteins
     if (i %% 50 == 0) {
-      cat("Finished processing 50 additional proteins\n",
-          file = "PredictIC50_parallel_log_progress.log", append = TRUE)
+      message(paste("Finished processing", i, "protein-drug combinations"))
     }
 
-    # Subset data for this protein
-    data_subset = data[data$protein == prot, ]
+    # Subset data for this protein-drug combination
+    data_subset = data[data$protein == temp[[2]] &
+                         data$drug %in% c("DMSO", temp[[1]]), ]
 
-    # Run PredictIC50 on this protein's data
+    # Run PredictIC50 on this subset
     PredictIC50(data_subset,
                 n_samples = n_samples,
                 alpha = alpha,
                 increasing = increasing,
                 transform_dose = transform_dose,
-                ratio_response = ratio_response)
-               # bootstrap = bootstrap
+                ratio_response = ratio_response,
+                bootstrap = bootstrap)
   })
 
-  stopCluster(cl)
+  # Clean up cluster
+  parallel::stopCluster(cl)
 
+  # Combine results
   final_df = do.call(rbind, results_list)
   return(final_df)
 }

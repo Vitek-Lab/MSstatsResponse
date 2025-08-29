@@ -14,7 +14,8 @@ VisualizeResponseProtein(
   add_ci = FALSE,
   n_samples = 1000,
   alpha = 0.1,
-  increasing = FALSE
+  increasing = FALSE,
+  y_lab = "Ratio Response"
 )
 }
 \arguments{

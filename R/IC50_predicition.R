@@ -9,7 +9,8 @@
 #' @param n_samples Number of bootstrap samples. Default = 1000.
 #' @param alpha Confidence level. Default = 0.10.
 #' @param target_response Numeric, the response fraction (e.g., 0.5, 0.25, 0.75). Default = 0.5.
-#' @return A data frame with columns: protein, drug, IC50, lower CI, upper CI.
+#' @param numberOfCores Number of cores for parallel processing. Default = 1.
+#' @return A data frame with columns: protein, drug, IC50, IC50_lower_bound, IC50_upper_bound.
 #' @export
 PredictIC50 = function(data,
                        n_samples = 1000,
@@ -57,12 +58,11 @@ PredictIC50 = function(data,
   drug_list = unique(data$drug[data$drug != "DMSO"])
   results_list = list()
   cl = parallel::makeCluster(numberOfCores)
-  parallel::clusterExport(cl, varlist = c("target_response", ".calcSingleIC50", "fit_isotonic_regression",
-                                          "predict_ic50", "bootstrap_ic50", "bootstrap_ic50_logscale"),
+  parallel::clusterExport(cl, varlist = c("target_response", ".calcSingleIC50", "fitIsotonicRegression",
+                                          "predictIC50", "bootstrapIC50", "bootstrapIC50LogScale"),
                           envir = environment())
   loop_list = data %>% distinct(drug, protein) %>% filter(drug != "DMSO")
 
-  # FIX: explicitly pass all args including target_response
   test_results = parLapply(cl, seq_len(nrow(loop_list)), function(i){
     temp = loop_list[i, ]
     data_subset = data %>%
@@ -149,12 +149,12 @@ PredictIC50 = function(data,
   result = NULL
 
   tryCatch({
-    fit_try = fit_isotonic_regression(x, y,
-                                      increasing = increasing,
-                                      transform_x = transform_dose,
-                                      ratio_y = ratio_response,
-                                      test_significance = FALSE)
-    ic50_est = predict_ic50(fit_try, target_response = adjusted_target_response)
+    fit_try = fitIsotonicRegression(x, y,
+                                    increasing = increasing,
+                                    transform_x = transform_dose,
+                                    ratio_y = ratio_response,
+                                    test_significance = FALSE)
+    ic50_est = predictIC50(fit_try, target_response = adjusted_target_response)
     ic50_est = ifelse(is.na(ic50_est), NA, ic50_est)
   }, error = function(e) {
     ic50_est = NA
@@ -173,14 +173,14 @@ PredictIC50 = function(data,
 
     if (bootstrap) {
       if(ratio_response){
-        bootstrap_res = bootstrap_ic50(
+        bootstrap_res = bootstrapIC50(
           dose = x, response = y,
           n_samples = n_samples, alpha = alpha,
           increasing = increasing,
           target_response = target_response
         )
       } else {
-        bootstrap_res = bootstrap_ic50_logscale(
+        bootstrap_res = bootstrapIC50LogScale(
           x = x, y = y,
           n_samples = n_samples, alpha = alpha,
           increasing = increasing,
@@ -205,15 +205,15 @@ PredictIC50 = function(data,
   return(result)
 }
 
-
 #' Predict IC50 (dose where response is 0.5 of DMSO)
 #'
-#' @param fit An object of class "isotonic_model" from fit_isotonic_regression().
+#' @param fit An object of class "isotonic_model" from fitIsotonicRegression().
 #' @param target_response The target response value for prediction (default = 0.5).
 #'
 #' @return Estimated dose value corresponding to target response (IC50)
 #' @export
-predict_ic50 = function(fit, target_response = 0.5) {
+#' @importFrom stats approx
+predictIC50 = function(fit, target_response = 0.5) {
   dose = fit$x
   response = fit$y_pred
 
@@ -241,7 +241,6 @@ predict_ic50 = function(fit, target_response = 0.5) {
   return(NA)
 }
 
-
 #' Bootstrap IC50 Estimates and Confidence Interval (ratio scale)
 #'
 #' @param dose Numeric vector of dose values.
@@ -250,12 +249,15 @@ predict_ic50 = function(fit, target_response = 0.5) {
 #' @param alpha Significance level for confidence interval (default = 0.10).
 #' @param increasing Logical. Fit non-decreasing if TRUE.
 #' @param target_response Numeric value for response level (default = 0.5).
+#' @param transform_x Logical. If TRUE, applies log10(dose + 1) transformation. Default = TRUE.
 #'
 #' @return List with mean IC50, CI bounds, and transformed estimates.
 #' @export
-bootstrap_ic50 = function(dose, response, n_samples = 1000, alpha = 0.10,
-                          increasing = FALSE, target_response = 0.5,
-                          transform_x = TRUE) {
+#' @importFrom stats quantile
+#' @import dplyr
+bootstrapIC50 = function(dose, response, n_samples = 1000, alpha = 0.10,
+                         increasing = FALSE, target_response = 0.5,
+                         transform_x = TRUE) {
   ic50_vals = numeric(n_samples)
   df = data.frame(dose = dose, response = response)
 
@@ -269,12 +271,12 @@ bootstrap_ic50 = function(dose, response, n_samples = 1000, alpha = 0.10,
     y_sample = boot_df$response
 
     tryCatch({
-      fit_sample = fit_isotonic_regression(x_sample, y_sample,
-                                           increasing = increasing,
-                                           transform_x = transform_x,
-                                           ratio_y = TRUE,
-                                           test_significance = FALSE)
-      ic50_est = predict_ic50(fit_sample, target_response = target_response)
+      fit_sample = fitIsotonicRegression(x_sample, y_sample,
+                                         increasing = increasing,
+                                         transform_x = transform_x,
+                                         ratio_y = TRUE,
+                                         test_significance = FALSE)
+      ic50_est = predictIC50(fit_sample, target_response = target_response)
       ic50_vals[i] = ifelse(is.na(ic50_est), NA, ic50_est)
     }, error = function(e) {
       ic50_vals[i] = NA
@@ -282,8 +284,8 @@ bootstrap_ic50 = function(dose, response, n_samples = 1000, alpha = 0.10,
   }
 
   ic50_values_clean = ic50_vals[!is.na(ic50_vals) & ic50_vals != 0]
-  ci_lower = quantile(ic50_values_clean, alpha / 2, na.rm = TRUE)
-  ci_upper = quantile(ic50_values_clean, 1 - alpha / 2, na.rm = TRUE)
+  ci_lower = stats::quantile(ic50_values_clean, alpha / 2, na.rm = TRUE)
+  ci_upper = stats::quantile(ic50_values_clean, 1 - alpha / 2, na.rm = TRUE)
   mean_ic50 = mean(ic50_values_clean, na.rm = TRUE)
 
   return(list(
@@ -308,8 +310,10 @@ bootstrap_ic50 = function(dose, response, n_samples = 1000, alpha = 0.10,
 #'
 #' @return List with mean IC50, CI bounds, and transformed estimates.
 #' @export
-bootstrap_ic50_logscale = function(x, y, n_samples = 1000, alpha = 0.05,
-                                   increasing = FALSE, target_response = 0.5) {
+#' @importFrom stats quantile
+#' @import dplyr
+bootstrapIC50LogScale = function(x, y, n_samples = 1000, alpha = 0.05,
+                                 increasing = FALSE, target_response = 0.5) {
   ic50_vals = numeric(n_samples)
   df = data.frame(dose = x, response = y)
 
@@ -332,12 +336,12 @@ bootstrap_ic50_logscale = function(x, y, n_samples = 1000, alpha = 0.05,
     adjusted_target_response = mean_dmso + log2(target_response)
 
     tryCatch({
-      fit_sample = fit_isotonic_regression(x_sample, y_sample,
-                                           increasing = increasing,
-                                           transform_x = TRUE,
-                                           ratio_y = FALSE,
-                                           test_significance = FALSE)
-      ic50_est = predict_ic50(fit_sample, target_response = adjusted_target_response)
+      fit_sample = fitIsotonicRegression(x_sample, y_sample,
+                                         increasing = increasing,
+                                         transform_x = TRUE,
+                                         ratio_y = FALSE,
+                                         test_significance = FALSE)
+      ic50_est = predictIC50(fit_sample, target_response = adjusted_target_response)
       ic50_vals[i] = ifelse(is.na(ic50_est), NA, ic50_est)
     }, error = function(e) {
       ic50_vals[i] = NA
@@ -345,8 +349,8 @@ bootstrap_ic50_logscale = function(x, y, n_samples = 1000, alpha = 0.05,
   }
 
   ic50_values_clean = ic50_vals[!is.na(ic50_vals) & ic50_vals != 0]
-  ci_lower = quantile(ic50_values_clean, alpha / 2, na.rm = TRUE)
-  ci_upper = quantile(ic50_values_clean, 1 - alpha / 2, na.rm = TRUE)
+  ci_lower = stats::quantile(ic50_values_clean, alpha / 2, na.rm = TRUE)
+  ci_upper = stats::quantile(ic50_values_clean, 1 - alpha / 2, na.rm = TRUE)
   mean_ic50 = mean(ic50_values_clean, na.rm = TRUE)
 
   return(list(

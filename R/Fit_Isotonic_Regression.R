@@ -13,7 +13,6 @@
 #' @export
 #' @importFrom stats pf p.adjust
 #' @import dplyr
-
 DoseResponseFit = function(data, weights = NULL,
                            increasing = FALSE,
                            transform_dose = TRUE,
@@ -23,20 +22,20 @@ DoseResponseFit = function(data, weights = NULL,
   all_results = list()
 
   for (drug_type in drug_list) {
-    drug_subset = data %>% filter(drug %in% c("DMSO", drug_type))
+    drug_subset = data %>% dplyr::filter(drug %in% c("DMSO", drug_type))
     protein_list = unique(drug_subset$protein)
     results_list = list()
 
     for (i in seq_along(protein_list)) {
       tryCatch({
         suppressWarnings({
-          data_single_protein = drug_subset %>% filter(protein == protein_list[i])
+          data_single_protein = drug_subset %>% dplyr::filter(protein == protein_list[i])
 
           x = data_single_protein$dose
           y = data_single_protein$response
           w = if (is.null(weights)) rep(1, length(y)) else weights
 
-          fit = fit_isotonic_regression(
+          fit = fitIsotonicRegression(
             x = x, y = y, w = w,
             increasing = increasing,
             transform_x = transform_dose,
@@ -51,21 +50,21 @@ DoseResponseFit = function(data, weights = NULL,
           results_list[[i]] = results_temp
         })
       }, error = function(e) {
-        cat("ERROR for drug:", drug_type, "protein:", protein_list[i], ":", conditionMessage(e), "\n")
+        warning(paste("Error for drug:", drug_type, "protein:", protein_list[i], ":", conditionMessage(e)))
       })
     }
 
     # Combine and adjust p-values for this drug
-    results_df = do.call(rbind, results_list)
-    results_df$adjust_pval = p.adjust(results_df$P_value, method = "BH")
-    all_results[[drug_type]] = results_df
+    if (length(results_list) > 0) {
+      results_df = do.call(rbind, results_list)
+      results_df$adjust_pval = p.adjust(results_df$P_value, method = "BH")
+      all_results[[drug_type]] = results_df
+    }
   }
 
   final_results = do.call(rbind, all_results)
   return(final_results)
 }
-
-
 
 #' Fit Isotonic Regression Model
 #'
@@ -84,12 +83,11 @@ DoseResponseFit = function(data, weights = NULL,
 #'
 #' @export
 #' @importFrom stats pf approx quantile
-
-fit_isotonic_regression = function(x, y, w = rep(1, length(y)),
-                                   increasing = FALSE,
-                                   transform_x = TRUE,
-                                   ratio_y = FALSE,
-                                   test_significance = FALSE) {
+fitIsotonicRegression = function(x, y, w = rep(1, length(y)),
+                                 increasing = FALSE,
+                                 transform_x = TRUE,
+                                 ratio_y = FALSE,
+                                 test_significance = FALSE) {
   stopifnot(length(x) == length(y), length(y) == length(w))
 
   x_org = x
@@ -104,7 +102,6 @@ fit_isotonic_regression = function(x, y, w = rep(1, length(y)),
     y = y / baseline
   }
 
-
   order_idx = order(x)
   x_sorted = x[order_idx]
   y_sorted = y[order_idx]
@@ -118,6 +115,7 @@ fit_isotonic_regression = function(x, y, w = rep(1, length(y)),
   n_obs = length(fit_y)
   i = 1
   target = seq_len(n_obs)
+
   while (i <= n_obs) {
     k = target[i] + 1 # compares to next value in sequence
     if (k > n_obs) break # stops if at end last value
@@ -158,11 +156,10 @@ fit_isotonic_regression = function(x, y, w = rep(1, length(y)),
   y_final = numeric(n_obs)
   y_final[order_idx] = fit_y
 
-  y_pred_new = approx(x, y_final, xout = x, rule = 2)$y
+  y_pred_new = stats::approx(x, y_final, xout = x, rule = 2)$y
 
   result = list(
     x = x,
-    #y = y_final,
     y_pred = y_pred_new,
     original_x = x_org[order_idx],
     original_y = y[order_idx],
@@ -181,15 +178,15 @@ fit_isotonic_regression = function(x, y, w = rep(1, length(y)),
     sse_full = sum((y - y_pred_new)^2)
     sse_null = sum((y - null_pred)^2)
     df_full = length(y) - length(unique(x))
-    #df_full = length(y) - k_star # less conservative approach (pooling k's)
     df_null = length(y) - 1
     f_stat = ((sse_null - sse_full) / (df_null - df_full)) / (sse_full / df_full)
-    p_value = 1 - pf(f_stat, df_null - df_full, df_full)
+    p_value = 1 - stats::pf(f_stat, df_null - df_full, df_full)
     f_res = data.frame(
       SSE_Full = sse_full,
       SSE_Null = sse_null,
       F_statistic = f_stat,
-      P_value = p_value
+      P_value = p_value,
+      stringsAsFactors = FALSE
     )
     result$f_test = f_res
   }

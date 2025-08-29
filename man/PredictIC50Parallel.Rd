@@ -36,5 +36,5 @@ PredictIC50Parallel(
 A data frame with columns: protein, drug, IC50, lower CI, upper CI.
 }
 \description{
-Runs PredictIC50 on the entire data set in parallel across proteins.
+Runs PredictIC50 on the entire dataset in parallel across proteins.
 }
