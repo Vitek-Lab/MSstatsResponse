@@ -3,6 +3,20 @@ utils::globalVariables(c(
   "drug", "protein", "dose", "x", "y", "y_pred"
 ))
 
+# Suppress R CMD check notes about undefined globals used in NSE
+utils::globalVariables(c(
+  # Variables from .extractTemplatesFromData
+  "dose_nM", "response", "LogIntensities", "Intensity", "ratio",
+
+  # Variables from PlotExperimentPowerCurve
+  "Category", "Interaction", "Percent", "N_rep", "NumConcs", "TPR",
+
+  # Variables from plotHitRateMSstatsResponse
+  "adjust_pval",
+
+  # Add any other NSE variables used in your package
+  "drug", "protein", "dose", "x", "y", "y_pred"
+))
 # Utility functions (if needed in future)
 
 # custom step interpolation (left-continuous)

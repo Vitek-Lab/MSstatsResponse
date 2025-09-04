@@ -30,3 +30,53 @@ A data frame with protein-wise F-test results and BH-adjusted p-values.
 Fits an isotonic regression model to protein abundance data.
 Performs an F-test to assess the significance of the dose-response curve and applies FDR correction.
 }
+\examples{
+# Load example data
+data_path <- system.file("extdata", "DIA_MSstats_Normalized.RDS",
+                         package = "MSstatsResponse")
+dia_data <- readRDS(data_path)
+
+# Convert GROUP to dose
+dose_info <- ConvertGroupToNumericDose(dia_data$ProteinLevelData$GROUP)
+dia_data$ProteinLevelData$dose <- dose_info$dose_nM * 1e-9
+dia_data$ProteinLevelData$drug <- dose_info$drug
+
+# Prepare data for analysis
+prepared_data <- MSstatsPrepareDoseResponseFit(
+  dia_data$ProteinLevelData,
+  dose_column = "dose",
+  drug_column = "drug",
+  protein_column = "Protein",
+  log_abundance_column = "LogIntensities"
+)
+
+# Subset for quick example
+example_data <- prepared_data[prepared_data$protein \%in\%
+                              unique(prepared_data$protein)[1:5], ]
+
+# Example 1: Basic interaction detection on log2 scale
+interaction_results <- DoseResponseFit(
+  data = example_data,
+  increasing = FALSE,
+  transform_dose = TRUE,
+  ratio_response = FALSE
+)
+
+# View results
+print(interaction_results)
+
+# Check significant interactions
+significant <- interaction_results[interaction_results$adjust_pval < 0.05, ]
+print(paste("Found", nrow(significant), "significant interactions"))
+
+\dontrun{
+# Example 2: Full dataset analysis
+full_results <- DoseResponseFit(
+  data = prepared_data,
+  increasing = FALSE,
+  transform_dose = TRUE,
+  ratio_response = FALSE
+)
+}
+
+}

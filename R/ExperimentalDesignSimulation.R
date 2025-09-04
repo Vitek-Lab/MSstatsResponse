@@ -18,6 +18,67 @@
 #'
 #' @return A list containing simulated data, MSstats formatted data, dose-response
 #'   fit results, hit rate plots, and optionally IC50 predictions.
+#'
+#' @examples
+#' # Example 1: Quick simulation with default templates (small scale for speed)
+#' sim_results <- FutureExperimentSimulation(
+#'   N_proteins = 50,  # Small number for quick example
+#'   N_rep = 2,
+#'   N_Control_Rep = 3,
+#'   Concentrations = c(0, 10, 100, 1000),  # Fewer doses for speed
+#'   IC50_Prediction = FALSE
+#' )
+#'
+#' # View hit rates
+#' print(sim_results$Hit_Rates_Data)
+#'
+#' # Check simulation results
+#' print(paste("Simulated", nrow(sim_results$Simulated_Data), "data points"))
+#'
+#' \dontrun{
+#' # Example 2: Full simulation with standard parameters
+#' full_sim <- FutureExperimentSimulation(
+#'   N_proteins = 3000,
+#'   N_rep = 3,
+#'   N_Control_Rep = 6,
+#'   Concentrations = c(0, 1, 3, 10, 30, 100, 300, 1000, 3000),
+#'   IC50_Prediction = TRUE
+#' )
+#'
+#' # Display power analysis plot
+#' print(full_sim$Hit_Rates_Plot)
+#'
+#' # Example 3: Using custom templates from your own data
+#' # Load and prepare your data
+#' data_path <- system.file("extdata", "DIA_MSstats_Normalized.RDS",
+#'                          package = "MSstatsResponse")
+#' dia_data <- readRDS(data_path)
+#'
+#' dose_info <- ConvertGroupToNumericDose(dia_data$ProteinLevelData$GROUP)
+#' dia_data$ProteinLevelData$dose <- dose_info$dose_nM * 1e-9
+#' dia_data$ProteinLevelData$drug <- dose_info$drug
+#'
+#' prepared_data <- MSstatsPrepareDoseResponseFit(
+#'   dia_data$ProteinLevelData,
+#'   dose_column = "dose",
+#'   drug_column = "drug",
+#'   protein_column = "Protein",
+#'   log_abundance_column = "LogIntensities"
+#' )
+#'
+#' # Run simulation with custom templates
+#' custom_sim <- FutureExperimentSimulation(
+#'   N_proteins = 1000,
+#'   N_rep = 3,
+#'   data = prepared_data,
+#'   strong_proteins = c("P00519", "P12931"),
+#'   weak_proteins = c("Q9H0K1"),
+#'   no_interaction_proteins = c("Q9P2K8"),
+#'   drug_name = "Dasatinib",
+#'   Concentrations = c(0, 1, 10, 100, 1000, 3000)
+#' )
+#'}
+#'
 #' @export
 FutureExperimentSimulation = function(N_proteins = 300,
                                       N_rep = 3,
@@ -287,7 +348,8 @@ FutureExperimentSimulation = function(N_proteins = 300,
 #' @param outlier_prob Probability of sample outlier. Default = 0.05.
 #'
 #' @return A data.frame with simulated chemoproteomics data.
-#' @export
+#' @importFrom stats rnorm rlnorm
+
 simulateChemoProteinLevelNonParametric = function(N_proteins = 3000,
                                                      TP = 0.333,
                                                      TW = 0.333,
@@ -497,7 +559,6 @@ plotHitRateMSstatsResponse = function(results, rep_count, concentration_count) {
 #' @param seed Random seed for reproducibility. Default = 123.
 #'
 #' @return A ggplot object showing power curves
-#' @export
 #' @import ggplot2 dplyr purrr tidyr
 PlotExperimentPowerCurve = function(conc_map = NULL,
                                     rep_grid = 1:5,

@@ -15,3 +15,21 @@ A data frame with two columns: dose_nM (numeric), and drug (character).
 \description{
 Convert MSstats GROUP labels to numeric dose in nM and extract drug name
 }
+\examples{
+# Example 1: Basic conversion with mixed units
+groups <- c("DMSO", "Dasatinib_001uM", "Dasatinib_010uM",
+            "Dasatinib_100nM", "Dasatinib_1000nM")
+dose_info <- ConvertGroupToNumericDose(groups)
+print(dose_info)
+
+# Example 2: Handle multiple drugs
+multi_drug_groups <- c("DMSO",
+                      "Dasatinib_001uM", "Dasatinib_010uM",
+                      "Imatinib_001uM", "Imatinib_010uM")
+multi_dose_info <- ConvertGroupToNumericDose(multi_drug_groups)
+print(multi_dose_info)
+
+# Show unique drugs found
+print(unique(multi_dose_info$drug))
+
+}

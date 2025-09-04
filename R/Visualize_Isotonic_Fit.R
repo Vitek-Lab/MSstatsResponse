@@ -10,8 +10,52 @@
 #' @param add_ci Logical. Include IC50 95% confidence interval bands if TRUE. Default is FALSE.
 #' @param n_samples Number of bootstrap samples if including confidence intervals. Default is 1000.
 #' @param alpha Alpha level for confidence intervals. Default is 0.05.
+#' @param y_lab Character. Label for the y-axis. Default is "Ratio Response".
 #'
 #' @return A ggplot object.
+#'
+#' @examples
+#' # Load example data
+#' data_path <- system.file("extdata", "DIA_MSstats_Normalized.RDS",
+#'                          package = "MSstatsResponse")
+#' dia_data <- readRDS(data_path)
+#'
+#' # Convert GROUP to dose
+#' dose_info <- ConvertGroupToNumericDose(dia_data$ProteinLevelData$GROUP)
+#' dia_data$ProteinLevelData$dose <- dose_info$dose_nM * 1e-9
+#' dia_data$ProteinLevelData$drug <- dose_info$drug
+#'
+#' # Prepare data for analysis
+#' prepared_data <- MSstatsPrepareDoseResponseFit(
+#'   dia_data$ProteinLevelData,
+#'   dose_column = "dose",
+#'   drug_column = "drug",
+#'   protein_column = "Protein",
+#'   log_abundance_column = "LogIntensities"
+#' )
+#'
+#' # Example 1: Basic dose-response visualization
+#' plot1 <- VisualizeResponseProtein(
+#'   data = prepared_data,
+#'   protein_name = "P12931",
+#'   drug_name = "Dasatinib",
+#'   ratio_response = TRUE,
+#'   show_ic50 = FALSE,
+#'   add_ci = FALSE
+#' )
+#' print(plot1)
+#'
+#' # Example 2: Add IC50 annotation
+#' plot2 <- VisualizeResponseProtein(
+#'   data = prepared_data,
+#'   protein_name = "P12931",
+#'   drug_name = "Dasatinib",
+#'   ratio_response = TRUE,
+#'   show_ic50 = TRUE,
+#'   add_ci = FALSE
+#' )
+#' print(plot2)
+#'
 #' @export
 VisualizeResponseProtein = function(data,
                                     protein_name,

@@ -23,10 +23,72 @@ MSstatsPrepareDoseResponseFit(
 \item{protein_column}{Name of the column containing protein identifiers (e.g., "Protein")}
 
 \item{log_abundance_column}{Name of the column with log-transformed abundance values (e.g., "LogIntensities")}
+
+\item{transform_nM_to_M}{Logical. If TRUE, converts dose values from nanomolar (nM) to molar (M)
+by multiplying by 10^-9. Use when dose_column contains nM values but analysis requires M units.
+Default is NULL (no transformation applied).}
 }
 \value{
 A standardized data.frame with columns: dose, response, protein
 }
 \description{
 Prepare data for dose-response fitting with isotonic regression
+}
+\examples{
+# Load example data
+data_path <- system.file("extdata", "DIA_MSstats_Normalized.RDS",
+                         package = "MSstatsResponse")
+dia_data <- readRDS(data_path)
+
+# Example 1: Basic data preparation with dose already in M
+# First add dose column if using GROUP labels
+dose_info <- ConvertGroupToNumericDose(dia_data$ProteinLevelData$GROUP)
+dia_data$ProteinLevelData$dose <- dose_info$dose_nM * 1e-9  # Convert to M
+dia_data$ProteinLevelData$drug <- dose_info$drug
+
+prepared_data <- MSstatsPrepareDoseResponseFit(
+  data = dia_data$ProteinLevelData,
+  dose_column = "dose",
+  drug_column = "drug",
+  protein_column = "Protein",
+  log_abundance_column = "LogIntensities"
+)
+
+# Check structure
+str(prepared_data)
+head(prepared_data)
+
+# Example 2: Convert dose from nM to M during preparation
+dia_data$ProteinLevelData$dose_nM <- dose_info$dose_nM  # Keep in nM
+
+prepared_data_converted <- MSstatsPrepareDoseResponseFit(
+  data = dia_data$ProteinLevelData,
+  dose_column = "dose_nM",
+  drug_column = "drug",
+  protein_column = "Protein",
+  log_abundance_column = "LogIntensities",
+  transform_nM_to_M = TRUE  # Convert nM to M
+)
+
+# Verify conversion
+print(unique(prepared_data_converted$dose))
+
+\dontrun{
+# Example 3: Working with custom column names
+custom_data <- data.frame(
+  ProteinID = rep(c("P1", "P2"), each = 10),
+  Treatment = rep(c("DMSO", "Drug1"), 10),
+  Concentration = rep(c(0, 1, 10, 100, 1000), 4),
+  Log2Abundance = rnorm(20, mean = 20, sd = 1)
+)
+
+prepared_custom <- MSstatsPrepareDoseResponseFit(
+  data = custom_data,
+  dose_column = "Concentration",
+  drug_column = "Treatment",
+  protein_column = "ProteinID",
+  log_abundance_column = "Log2Abundance",
+  transform_nM_to_M = TRUE
+)
+}
 }

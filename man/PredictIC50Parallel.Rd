@@ -38,3 +38,36 @@ A data frame with columns: protein, drug, IC50, lower CI, upper CI.
 \description{
 Runs PredictIC50 on the entire dataset in parallel across proteins.
 }
+\examples{
+# Load example data
+data_path <- system.file("extdata", "DIA_MSstats_Normalized.RDS",
+                         package = "MSstatsResponse")
+dia_data <- readRDS(data_path)
+
+# Convert GROUP to dose
+dose_info <- ConvertGroupToNumericDose(dia_data$ProteinLevelData$GROUP)
+dia_data$ProteinLevelData$dose <- dose_info$dose_nM * 1e-9
+dia_data$ProteinLevelData$drug <- dose_info$drug
+
+# Prepare data for analysis
+prepared_data <- MSstatsPrepareDoseResponseFit(
+  dia_data$ProteinLevelData,
+  dose_column = "dose",
+  drug_column = "drug",
+  protein_column = "Protein",
+  log_abundance_column = "LogIntensities"
+)
+
+# Subset for quick example
+example_data <- prepared_data[prepared_data$protein \%in\%
+                              unique(prepared_data$protein)[1:5], ]
+
+# Example 1: Quick parallel IC50 without bootstrap (2 cores)
+ic50_quick_parallel <- PredictIC50Parallel(
+  data = example_data,
+  bootstrap = FALSE,
+  numberOfCores = 2
+)
+print(ic50_quick_parallel)
+
+}

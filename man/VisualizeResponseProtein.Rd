@@ -38,10 +38,55 @@ VisualizeResponseProtein(
 \item{alpha}{Alpha level for confidence intervals. Default is 0.05.}
 
 \item{increasing}{Logical. If TRUE, fits a non-decreasing model. If FALSE, fits non-increasing.}
+
+\item{y_lab}{Character. Label for the y-axis. Default is "Ratio Response".}
 }
 \value{
 A ggplot object.
 }
 \description{
 Plot isotonic regression fit with optional IC50 for a single protein and drug
+}
+\examples{
+# Load example data
+data_path <- system.file("extdata", "DIA_MSstats_Normalized.RDS",
+                         package = "MSstatsResponse")
+dia_data <- readRDS(data_path)
+
+# Convert GROUP to dose
+dose_info <- ConvertGroupToNumericDose(dia_data$ProteinLevelData$GROUP)
+dia_data$ProteinLevelData$dose <- dose_info$dose_nM * 1e-9
+dia_data$ProteinLevelData$drug <- dose_info$drug
+
+# Prepare data for analysis
+prepared_data <- MSstatsPrepareDoseResponseFit(
+  dia_data$ProteinLevelData,
+  dose_column = "dose",
+  drug_column = "drug",
+  protein_column = "Protein",
+  log_abundance_column = "LogIntensities"
+)
+
+# Example 1: Basic dose-response visualization
+plot1 <- VisualizeResponseProtein(
+  data = prepared_data,
+  protein_name = "P12931",
+  drug_name = "Dasatinib",
+  ratio_response = TRUE,
+  show_ic50 = FALSE,
+  add_ci = FALSE
+)
+print(plot1)
+
+# Example 2: Add IC50 annotation
+plot2 <- VisualizeResponseProtein(
+  data = prepared_data,
+  protein_name = "P12931",
+  drug_name = "Dasatinib",
+  ratio_response = TRUE,
+  show_ic50 = TRUE,
+  add_ci = FALSE
+)
+print(plot2)
+
 }

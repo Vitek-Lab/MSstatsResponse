@@ -10,9 +10,60 @@
 #' @param ratio_response Logical. If TRUE, converts log2 abundance to ratios relative to DMSO. Default is FALSE.
 #'
 #' @return A data frame with protein-wise F-test results and BH-adjusted p-values.
+#'
+#' @examples
+#' # Load example data
+#' data_path <- system.file("extdata", "DIA_MSstats_Normalized.RDS",
+#'                          package = "MSstatsResponse")
+#' dia_data <- readRDS(data_path)
+#'
+#' # Convert GROUP to dose
+#' dose_info <- ConvertGroupToNumericDose(dia_data$ProteinLevelData$GROUP)
+#' dia_data$ProteinLevelData$dose <- dose_info$dose_nM * 1e-9
+#' dia_data$ProteinLevelData$drug <- dose_info$drug
+#'
+#' # Prepare data for analysis
+#' prepared_data <- MSstatsPrepareDoseResponseFit(
+#'   dia_data$ProteinLevelData,
+#'   dose_column = "dose",
+#'   drug_column = "drug",
+#'   protein_column = "Protein",
+#'   log_abundance_column = "LogIntensities"
+#' )
+#'
+#' # Subset for quick example
+#' example_data <- prepared_data[prepared_data$protein %in%
+#'                               unique(prepared_data$protein)[1:5], ]
+#'
+#' # Example 1: Basic interaction detection on log2 scale
+#' interaction_results <- DoseResponseFit(
+#'   data = example_data,
+#'   increasing = FALSE,
+#'   transform_dose = TRUE,
+#'   ratio_response = FALSE
+#' )
+#'
+#' # View results
+#' print(interaction_results)
+#'
+#' # Check significant interactions
+#' significant <- interaction_results[interaction_results$adjust_pval < 0.05, ]
+#' print(paste("Found", nrow(significant), "significant interactions"))
+#'
+#' \dontrun{
+#' # Example 2: Full dataset analysis
+#' full_results <- DoseResponseFit(
+#'   data = prepared_data,
+#'   increasing = FALSE,
+#'   transform_dose = TRUE,
+#'   ratio_response = FALSE
+#' )
+#' }
+#'
 #' @export
 #' @importFrom stats pf p.adjust
-#' @import dplyr
+#' @importFrom dplyr filter select mutate group_by summarise arrange distinct
+#' @importFrom data.table rbindlist
 DoseResponseFit = function(data, weights = NULL,
                            increasing = FALSE,
                            transform_dose = TRUE,
@@ -81,7 +132,6 @@ DoseResponseFit = function(data, weights = NULL,
 #'
 #' @return A list representing the isotonic regression model (class = "isotonic_model").
 #'
-#' @export
 #' @importFrom stats pf approx quantile
 fitIsotonicRegression = function(x, y, w = rep(1, length(y)),
                                  increasing = FALSE,
