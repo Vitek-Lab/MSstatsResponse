@@ -415,69 +415,8 @@ Performance metrics:
 - **FPR (False Positive Rate)**: Proportion of non-interactions falsely detected  
 
 
-### Optimizing Experimental Design
-
-Consider adjusting:  
-
-- **Number of doses**: More doses improve curve resolution  
-
-- **Dose spacing**: Log-scale spacing captures full dynamic range  
-
-- **Replicates**: More replicates reduce variance and improve power  
-
-- **Control replicates**: Extra DMSO replicates improve baseline estimation  
 
 
- 
-
-### Optimizing Dose Points and Replicates
-
-The `PlotExperimentPowerCurve()` function helps visualize how detection power changes with different numbers of dose points and replicates:
-
-```{r power_curves, fig.height=5, fig.width=8, eval=FALSE}
-# Plot power curves for strong interactions only
-power_plot_strong <- PlotExperimentPowerCurve(
-  rep_grid = 1:5,
-  N_proteins = 300,
-  interaction_type = "Strong"
-)
-print(power_plot_strong)
-
-# Plot power curves for weak interactions only
-power_plot_weak <- PlotExperimentPowerCurve(
-  rep_grid = 1:5,
-  N_proteins = 300,
-  interaction_type = "Weak"
-)
-print(power_plot_weak)
-```
-
-
-
-## 7. Best Practices and Recommendations
-
-### Statistical Considerations  
-
-1. **Scale choice**:
-   - Use **log2 scale** for interaction testing (variance stabilization)
-   - Use **ratio scale** for IC50 estimation (interpretability)
-
-2. **Multiple testing**:
-   - Always use FDR-adjusted p-values for significance calls
-   - Optional to loosen thresholds for exploratory analyses
-
-3. **Bootstrap parameters**:
-   - Use ≥1000 samples for stable confidence intervals
-   - Increase samples if computational resources allow
-
-
- 
-
-## 8. Troubleshooting
-
-### Common Issues and Solutions
-
- 
 
 ## Session Information
 

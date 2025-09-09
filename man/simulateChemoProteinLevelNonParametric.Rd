@@ -11,7 +11,7 @@ simulateChemoProteinLevelNonParametric(
   TN = 0.333,
   concentrations = c(0, 1, 3, 10, 30, 100, 300, 1000, 3000),
   rep = 3,
-  seed = 3,
+  seed = NULL,
   var_tech = 0.4,
   control_rep = NULL,
   template = list(strong_interaction = data.frame(dose = c(), LogIntensities = c()),

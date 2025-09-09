@@ -145,7 +145,8 @@ MSstatsPrepareDoseResponseFit = function(data,
   subset_df = data[, c(protein_column, drug_column, dose_column, log_abundance_column)]
   colnames(subset_df) = c("protein", "drug", "dose", "response")
 
-  if (transform_nM_to_M){
+
+  if (!is.null(transform_nM_to_M) && transform_nM_to_M) {
     subset_df$dose_nM = subset_df$dose
     subset_df$dose = subset_df$dose * 10^-9
   }

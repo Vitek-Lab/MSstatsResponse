@@ -356,7 +356,7 @@ simulateChemoProteinLevelNonParametric = function(N_proteins = 3000,
                                                      TN = 0.333,
                                                      concentrations = c(0, 1, 3, 10, 30, 100, 300, 1000, 3000),
                                                      rep = 3,
-                                                     seed = 3,
+                                                     seed = NULL,
                                                      var_tech = 0.4,
                                                      control_rep = NULL,
                                                      template = list(
@@ -383,7 +383,9 @@ simulateChemoProteinLevelNonParametric = function(N_proteins = 3000,
   template = lapply(template, subset_template, concentrations = concentrations)
 
   # Set random seed for reproducibility
-  set.seed(seed)
+  #if (!is.null(seed)) {
+  #  set.seed(seed)
+ # }
 
   # Calculate the number of proteins for each interaction type
   tp = ceiling(N_proteins * TP)
@@ -548,130 +550,3 @@ plotHitRateMSstatsResponse = function(results, rep_count, concentration_count) {
   return(list(plot = p, plot_data = plot_data))
 }
 
-
-#' Plot power curves for different experimental designs
-#'
-#' @param conc_map List mapping number of concentrations to specific concentration values.
-#'   Default uses optimal spacing from 2 to 9 concentrations.
-#' @param rep_grid Vector of replicate numbers to test. Default = 1:5.
-#' @param N_proteins Number of proteins to simulate. Default = 300.
-#' @param interaction_type Character. Either "Strong", "Weak", or "Both". Default = "Both".
-#' @param seed Random seed for reproducibility. Default = 123.
-#'
-#' @return A ggplot object showing power curves
-#' @import ggplot2 dplyr purrr tidyr
-PlotExperimentPowerCurve = function(conc_map = NULL,
-                                    rep_grid = 1:5,
-                                    N_proteins = 300,
-                                    interaction_type = "Both",
-                                    seed = 123) {
-
-  # Default concentration mapping if not provided
-  if (is.null(conc_map)) {
-    conc_map = list(
-      `2` = c(0, 3000),
-      `3` = c(0, 1000, 3000),
-      `4` = c(0, 1, 1000, 3000),
-      `5` = c(0, 1, 100, 1000, 3000),
-      `6` = c(0, 1, 100, 300, 1000, 3000),
-      `7` = c(0, 1, 10, 100, 300, 1000, 3000),
-      `8` = c(0, 1, 10, 30, 100, 300, 1000, 3000),
-      `9` = c(0, 1, 3, 10, 30, 100, 300, 1000, 3000)
-    )
-  }
-
-  # Validate interaction_type
-  if (!interaction_type %in% c("Strong", "Weak", "Both")) {
-    stop("interaction_type must be 'Strong', 'Weak', or 'Both'")
-  }
-
-  # Allowed concentrations
-  allowed_concs = c(0, 1, 3, 10, 30, 100, 300, 1000, 3000)
-
-  # Grid of concentrations
-  k_grid = as.integer(names(conc_map))
-
-  # Helper function to run one configuration
-  .runOneConfig = function(n_rep, k_conc, seed) {
-    set.seed(seed + n_rep * 100 + k_conc)
-    concs_k = conc_map[[as.character(k_conc)]]
-
-    if (is.null(concs_k)) {
-      stop("No concentration set defined for K = ", k_conc)
-    }
-    if (!all(concs_k %in% allowed_concs)) {
-      stop("Concentration set for K=", k_conc, " includes values outside allowed concentrations.")
-    }
-
-    temp_res = FutureExperimentSimulation(
-      N_proteins = N_proteins,
-      N_rep = n_rep,
-      Concentrations = concs_k,
-      IC50_Prediction = FALSE
-    )
-
-    temp_res$Hit_Rates_Data %>%
-      dplyr::filter(Category %in% c("TPR (Strong)", "TPR (Weak)")) %>%
-      dplyr::mutate(
-        N_rep = n_rep,
-        NumConcs = length(concs_k),
-        Interaction = if_else(Category == "TPR (Strong)", "Strong", "Weak")
-      ) %>%
-      dplyr::select(Interaction, TPR = Percent, N_rep, NumConcs)
-  }
-
-  # Run the full sweep
-  grid_df = expand.grid(N_rep = rep_grid, k_conc = k_grid) %>% as_tibble()
-  results_long = pmap_dfr(grid_df, ~ .runOneConfig(n_rep = ..1, k_conc = ..2, seed = seed))
-
-  # Filter based on interaction type
-  if (interaction_type != "Both") {
-    results_long = results_long %>% filter(Interaction == interaction_type)
-  }
-
-  # Create the plot
-  p_power = ggplot(results_long,
-                   aes(x = NumConcs, y = TPR,
-                       color = Interaction,
-                       linetype = factor(N_rep))) +
-    geom_line(linewidth = 1.5) +
-    geom_point(size = 2) +
-    scale_x_continuous(breaks = k_grid) +
-    scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 20)) +
-    scale_linetype_manual(
-      values = c("1" = "dotted",
-                 "2" = "dotdash",
-                 "3" = "dashed",
-                 "4" = "longdash",
-                 "5" = "solid"),
-      name = "Replicates"
-    ) +
-    labs(
-      title = paste0("Detection Power: ", interaction_type, " Interactions"),
-      x = "Number of Dose Points",
-      y = "True Positive Rate (%)",
-      color = "Interaction Type"
-    ) +
-    theme_bw(base_size = 14) +
-    theme(
-      plot.title = element_text(face = "bold", hjust = 0.5, size = 16),
-      legend.position = "right",
-      panel.grid.minor = element_blank(),
-      axis.text = element_text(color = "black"),
-      axis.title = element_text(face = "bold")
-    )
-
-  # Adjust color scale based on interaction type
-  if (interaction_type == "Strong") {
-    p_power = p_power +
-      scale_color_manual(values = c("Strong" = "#1b9e77"), guide = "none")
-  } else if (interaction_type == "Weak") {
-    p_power = p_power +
-      scale_color_manual(values = c("Weak" = "#d95f02"), guide = "none")
-  } else {
-    p_power = p_power +
-      scale_color_manual(values = c("Strong" = "#1b9e77", "Weak" = "#d95f02"))
-  }
-
-  return(p_power)
-}
