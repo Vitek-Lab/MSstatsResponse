@@ -1,18 +1,10 @@
 # MSstatsResponse
 
-**Statistical Modeling of Drug–Protein Interactions and IC50 Estimation from Dose–Response Proteomics Data**
+**Statistical modeling of drug–protein interactions and IC50 estimation from chemoproteomics data**
 
-MSstatsResponse is an R package for analyzing mass spectrometry-based dose-response proteomics experiments. It enables robust detection of drug–protein interactions and estimation of IC50 values using isotonic regression.
+MSstatsResponse is an R-based/Bioconductor package for the analysis of mass spectrometry-based chemoproteomics experiments. It is designed to detect drug–protein interactions and estimate IC50 values using isotonic regression models.
 
-The package is compatible with protein-level data from [MSstats](https://github.com/Vitek-Lab/MSstats) and [MSstatsTMT](https://github.com/Vitek-Lab/MSstatsTMT), and is designed to support a wide range of experimental designs.
-
-## Features
-
-- Drug–protein interaction detection using isotonic regression and F-tests  
-- IC50 estimation via monotonic model fitting and linear interpolation  
-- Bootstrap confidence intervals for IC50 estimates  
-- Publication-ready plots of dose–response curves  
-- Supports both log2 and ratio scale analysis, and flexible monotonicity constraints
+The package is compatible with summarized protein-level data from [MSstats](https://github.com/Vitek-Lab/MSstats) and [MSstatsTMT](https://github.com/Vitek-Lab/MSstatsTMT), and supports the analysis of dose–response experiments (with varying experimental designs). It is applicable to chemoproteomics workflows based on Data-Independent Acquisition (DIA), Data-Dependent Acquisition (DDA), and targeted Selected Reaction Monitoring (SRM). While primarily developed for chemoproteomics datasets, the methods in MSstatsResponse can be easily extended to other types of datasets that exhibit monotonic trends.
 
 ## Installation
 
