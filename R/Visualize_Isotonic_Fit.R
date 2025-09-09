@@ -204,7 +204,22 @@ plotIsotonic = function(fit,
     }
 
     ic50_pred = predictIC50(fit, target_response = target_response)
-    y_ic50 = stats::approx(fit$x, fit$y_pred, xout = ic50_pred)$y
+
+    # fix approx warning for handling duplicate x values
+    if (length(unique(fit$x)) < length(fit$x)) {
+      # Aggregate y values for duplicate x values before interpolation
+      x_unique = unique(fit$x)
+      y_aggregated = sapply(x_unique, function(xi) {
+        mean(fit$y_pred[fit$x == xi])
+      })
+      y_ic50 = stats::approx(x_unique, y_aggregated, xout = ic50_pred)$y
+    } else {
+      suppressWarnings({
+        y_ic50 = stats::approx(fit$x, fit$y_pred, xout = ic50_pred)$y
+      })
+    }
+    #y_ic50 = stats::approx(fit$x, fit$y_pred, xout = ic50_pred)$y
+
     ic50_pred_transform = -log10(ic50_pred) #pIC50
 
     model_fit_plot = model_fit_plot +

@@ -82,8 +82,35 @@
                            drug_type,
                            target_response){
 
+
   x = df$dose
   y = df$response
+
+  # Check for DMSO presence (dose = 0)
+  if (!any(x == 0)) {
+    warning(paste("No DMSO control for protein", prot, "and drug", drug_type))
+    return(data.frame(
+      protein = prot,
+      drug = drug_type,
+      IC50 = NA,
+      IC50_lower_bound = NA,
+      IC50_upper_bound = NA,
+      stringsAsFactors = FALSE
+    ))
+  }
+
+  # Validate input data
+  if (nrow(df) < 2) {
+    warning(paste("Insufficient data for protein", prot, "and drug", drug_type))
+    return(data.frame(
+      protein = prot,
+      drug = drug_type,
+      IC50 = NA,
+      IC50_lower_bound = NA,
+      IC50_upper_bound = NA,
+      stringsAsFactors = FALSE
+    ))
+  }
 
   order_idx = order(x)
   x = x[order_idx]
@@ -91,6 +118,21 @@
 
   y_unlog = 2^y
   baseline = mean(y_unlog[x == 0], na.rm = TRUE)
+
+  # Check if baseline is valid
+  if (is.na(baseline) || !is.finite(baseline)) {
+    warning(paste("Invalid baseline for protein", prot, "and drug", drug_type))
+    return(data.frame(
+      protein = prot,
+      drug = drug_type,
+      IC50 = NA,
+      IC50_lower_bound = NA,
+      IC50_upper_bound = NA,
+      stringsAsFactors = FALSE
+    ))
+  }
+
+
   y_ratio = y_unlog / baseline
 
   if (!ratio_response){
@@ -101,6 +143,7 @@
   }
 
   result = NULL
+  ic50_est = NA
 
   tryCatch({
     fit_try = fitIsotonicRegression(x, y,
@@ -111,7 +154,7 @@
     ic50_est = predictIC50(fit_try, target_response = adjusted_target_response)
     ic50_est = ifelse(is.na(ic50_est), NA, ic50_est)
   }, error = function(e) {
-    ic50_est = NA
+    ic50_est <<- NA
   })
 
   if (is.na(ic50_est)) {

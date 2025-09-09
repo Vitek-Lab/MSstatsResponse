@@ -70,6 +70,21 @@ DoseResponseFit = function(data, weights = NULL,
                            ratio_response = FALSE) {
 
   drug_list = unique(data$drug[data$drug != "DMSO"])
+
+  # If no drugs to test, return empty data frame with correct structure
+  if (length(drug_list) == 0) {
+    return(data.frame(
+      protein = character(),
+      drug = character(),
+      SSE_Full = numeric(),
+      SSE_Null = numeric(),
+      F_statistic = numeric(),
+      P_value = numeric(),
+      adjust_pval = numeric(),
+      stringsAsFactors = FALSE
+    ))
+  }
+
   all_results = list()
 
   for (drug_type in drug_list) {
@@ -84,7 +99,23 @@ DoseResponseFit = function(data, weights = NULL,
 
           x = data_single_protein$dose
           y = data_single_protein$response
-          w = if (is.null(weights)) rep(1, length(y)) else weights
+
+          # Handle weights
+          if (is.null(weights)) {
+            w = rep(1, length(y))
+          } else if (length(weights) == nrow(data)) {
+            # If weights provided for full dataset, subset them
+            protein_drug_idx = which(data$protein == protein_list[i] &
+                                       data$drug %in% c("DMSO", drug_type))
+            w = weights[protein_drug_idx]
+          } else if (length(weights) == length(y)) {
+            w = weights
+          } else {
+            warning("Weights length doesn't match data, using equal weights")
+            w = rep(1, length(y))
+          }
+
+          #w = if (is.null(weights)) rep(1, length(y)) else weights
 
           fit = fitIsotonicRegression(
             x = x, y = y, w = w,
@@ -111,6 +142,20 @@ DoseResponseFit = function(data, weights = NULL,
       results_df$adjust_pval = p.adjust(results_df$P_value, method = "BH")
       all_results[[drug_type]] = results_df
     }
+  }
+
+  # Return empty data frame if no results
+  if (length(all_results) == 0) {
+    return(data.frame(
+      protein = character(),
+      drug = character(),
+      SSE_Full = numeric(),
+      SSE_Null = numeric(),
+      F_statistic = numeric(),
+      P_value = numeric(),
+      adjust_pval = numeric(),
+      stringsAsFactors = FALSE
+    ))
   }
 
   final_results = do.call(rbind, all_results)
@@ -167,7 +212,7 @@ fitIsotonicRegression = function(x, y, w = rep(1, length(y)),
   target = seq_len(n_obs)
 
   while (i <= n_obs) {
-    k = target[i] + 1 # compares to next value in sequence
+    k = target[i] + 1
     if (k > n_obs) break # stops if at end last value
     if (fit_y[i] < fit_y[k]) { # if breaks constraint , do not let line change
       i = k
@@ -206,7 +251,19 @@ fitIsotonicRegression = function(x, y, w = rep(1, length(y)),
   y_final = numeric(n_obs)
   y_final[order_idx] = fit_y
 
-  y_pred_new = stats::approx(x, y_final, xout = x, rule = 2)$y
+  # fix to duplicate x values warnings from approx function
+  if (length(unique(x)) < length(x)) {
+    # Aggregate y values for duplicate x values
+    x_unique = unique(x)
+    y_aggregated = sapply(x_unique, function(xi) {
+      mean(y_final[x == xi])
+    })
+    y_pred_new = stats::approx(x_unique, y_aggregated, xout = x, rule = 2)$y
+  } else {
+    y_pred_new = stats::approx(x, y_final, xout = x, rule = 2)$y
+  }
+
+  #y_pred_new = stats::approx(x, y_final, xout = x, rule = 2)$y
 
   result = list(
     x = x,
