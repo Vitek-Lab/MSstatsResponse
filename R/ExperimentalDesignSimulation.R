@@ -71,10 +71,10 @@
 #'   N_proteins = 1000,
 #'   N_rep = 3,
 #'   data = prepared_data,
-#'   strong_proteins = c("P00519", "P12931"),
-#'   weak_proteins = c("Q9H0K1"),
-#'   no_interaction_proteins = c("Q9P2K8"),
-#'   drug_name = "Dasatinib",
+#'   strong_proteins = c("PROTEIN_A"),
+#'   weak_proteins = c("PROTEIN_B"),
+#'   no_interaction_proteins = c("PROTEIN_C"),
+#'   drug_name = "Drug1",
 #'   Concentrations = c(0, 1, 10, 100, 1000, 3000)
 #' )
 #'}
@@ -121,16 +121,16 @@ FutureExperimentSimulation = function(N_proteins = 300,
 
   } else {
     # Use default templates from package
-    template1_path = system.file("extdata", "template1_SRC_TEC_EIF2AK4.RDS",
+    template1_path = system.file("extdata", "template1.RDS",
                                  package = "MSstatsResponse")
-    template3_path = system.file("extdata", "template3_Q9H0K1_P09693.RDS",
+    template3_path = system.file("extdata", "template3.RDS",
                                  package = "MSstatsResponse")
 
     if (!file.exists(template1_path)) {
-      stop("Template file 1 not found. Please ensure template1_SRC_TEC_EIF2AK4.RDS is in inst/extdata/")
+      stop("Template file 1 not found. Please ensure template1.RDS is in inst/extdata/")
     }
     if (!file.exists(template3_path)) {
-      stop("Template file 3 not found. Please ensure template3_Q9H0K1_P09693.RDS is in inst/extdata/")
+      stop("Template file 3 not found. Please ensure template3.RDS is in inst/extdata/")
     }
 
     template = readRDS(template1_path)  # Use template1 as default

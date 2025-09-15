@@ -160,7 +160,7 @@ str(dia_prepared)
 
 # View sample of prepared data
 dia_prepared %>%
-  filter(protein %in% c("P00519", "P12931")) %>%
+  filter(protein %in% c("PROTEIN_A", "PROTEIN_B")) %>%
   arrange(protein, drug, dose) %>%
   head(20)
 ```
@@ -299,11 +299,23 @@ The `VisualizeResponseProtein()` function creates publication-quality dose-respo
 # Visualize strong responder
 VisualizeResponseProtein(
   data = dia_prepared,
-  protein_name = "P00519",
-  drug_name = "Dasatinib",
+  protein_name = "PROTEIN_A",
+  drug_name = "Drug1",
   ratio_response = TRUE,
   show_ic50 = TRUE,
   add_ci = TRUE,
+  transform_dose = TRUE,
+  n_samples = 1000
+)
+
+VisualizeResponseProtein(
+  data = dia_prepared,
+  protein_name = "PROTEIN_A",
+  drug_name = "Drug1",
+  ratio_response = TRUE,
+  show_ic50 = TRUE,
+  add_ci = TRUE,
+  transform_dose = TRUE,
   n_samples = 1000
 )
 ```
@@ -312,8 +324,8 @@ VisualizeResponseProtein(
 # Visualize another target
 VisualizeResponseProtein(
   data = dia_prepared,
-  protein_name = "P12931",
-  drug_name = "Dasatinib",
+  protein_name = "PROTEIN_B",
+  drug_name = "Drug1",
   ratio_response = TRUE,
   show_ic50 = TRUE,
   add_ci = TRUE
@@ -326,8 +338,8 @@ VisualizeResponseProtein(
 # Log2 scale (left panel)
 p1 <- VisualizeResponseProtein(
   data = dia_prepared,
-  protein_name = "P00519",
-  drug_name = "Dasatinib",
+  protein_name = "PROTEIN_A",
+  drug_name = "Drug1",
   ratio_response = FALSE,  # Log2 scale
   show_ic50 = TRUE,
   add_ci = FALSE
@@ -336,8 +348,8 @@ p1 <- VisualizeResponseProtein(
 # Ratio scale (right panel)  
 p2 <- VisualizeResponseProtein(
   data = dia_prepared,
-  protein_name = "P00519",
-  drug_name = "Dasatinib",
+  protein_name = "PROTEIN_A",
+  drug_name = "Drug1",
   ratio_response = TRUE,   # Ratio scale
   show_ic50 = TRUE,
   add_ci = FALSE
@@ -355,19 +367,6 @@ p2 <- VisualizeResponseProtein(
 
 The `FutureExperimentSimulation()` function helps optimize experimental design by simulating performance under different conditions:
 
-```{r simulation_example, eval=TRUE}
-# Simulate experiment with specific parameters
-simulation_results <- FutureExperimentSimulation(
-  N_proteins = 3000,           # Total number of proteins
-  N_rep = 3,                   # Replicates per dose
-  N_Control_Rep = 3,           # Control (DMSO) replicates
-  Concentrations = c(0, 1, 3, 10, 30, 100, 300, 1000, 3000),  # nM
-  IC50_Prediction = FALSE       # Also perform IC50 estimation
-)
-
-# View performance metrics
-print(simulation_results$Hit_Rates_Plot)
-```
 ### Using Your Own Data as Templates. 
 
 You can use proteins from your own experimental data as templates for more realistic simulations. This approach leverages your validated hits to model expected performance:
@@ -381,10 +380,10 @@ custom_simulation <- FutureExperimentSimulation(
   N_Control_Rep = 3,
   Concentrations = c(0, 1, 3, 10, 30, 100, 300, 1000, 3000),
   data = dia_prepared,                          # Your data
-  strong_proteins = 'P12931',                # User defined strong responder
-  weak_proteins = 'P00519',                    # User defined weak responder 
-  no_interaction_proteins = 'Q9P2K8',          # User defined negative control 
-  drug_name = "Dasatinib",                     # Specify which drug to model
+  strong_proteins = 'PROTEIN_B',                # User defined strong responder
+  weak_proteins = 'PROTEIN_A',                    # User defined weak responder 
+  no_interaction_proteins = 'PROTEIN_C',          # User defined negative control 
+  drug_name = "Drug1",                     # Specify which drug to model
   IC50_Prediction = FALSE
 )
 
@@ -394,28 +393,6 @@ print(custom_simulation$Hit_Rates_Plot)
 # Examine the templates that were extracted from your data
 print(custom_simulation$Template_Used)
 ```
-
-
-
-### Interpreting Simulation Results
-
-The simulation generates three protein categories:  
-
-- **Strong interactions**: Clear dose-response relationship  
-
-- **Weak interactions**: Subtle dose-response relationship    
-
-- **No interaction**: No dose-dependent change  
-
-
-Performance metrics:  
-
-- **TPR (True Positive Rate)**: Proportion of true interactions detected  
-
-- **FPR (False Positive Rate)**: Proportion of non-interactions falsely detected  
-
-
-
 
 
 ## Session Information

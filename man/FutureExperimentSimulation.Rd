@@ -102,10 +102,10 @@ custom_sim <- FutureExperimentSimulation(
   N_proteins = 1000,
   N_rep = 3,
   data = prepared_data,
-  strong_proteins = c("P00519", "P12931"),
-  weak_proteins = c("Q9H0K1"),
-  no_interaction_proteins = c("Q9P2K8"),
-  drug_name = "Dasatinib",
+  strong_proteins = c("PROTEIN_A"),
+  weak_proteins = c("PROTEIN_B"),
+  no_interaction_proteins = c("PROTEIN_C"),
+  drug_name = "Drug1",
   Concentrations = c(0, 1, 10, 100, 1000, 3000)
 )
 }
