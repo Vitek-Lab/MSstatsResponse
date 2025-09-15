@@ -120,7 +120,7 @@ The `ConvertGroupToNumericDose()` function parses MSstats-style GROUP labels to 
 
 **Format expectations:**  
 - Control samples: `"DMSO"` (assigned dose = 0)  
-- Treatment samples: `"DrugName_ValueUnit"` (e.g., `"Dasatinib_003uM"`, `"Capmatinib_300nM"`) 
+- Treatment samples: `"DrugName_ValueUnit"` (e.g., `"Drug1_003uM"`, `"Drug2_300nM"`) 
 
 ```{r convert_doses}
 # Convert GROUP labels to numeric doses
