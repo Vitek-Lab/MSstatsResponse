@@ -37,4 +37,4 @@ Suggests:
     testthat
 VignetteBuilder: knitr
 Roxygen: list(markdown = TRUE)
-biocViews: Proteomics, MassSpectrometry, StatisticalMethod, Software
+biocViews: Proteomics, MassSpectrometry, StatisticalMethod, Software, Regression

@@ -154,7 +154,7 @@
     ic50_est = predictIC50(fit_try, target_response = adjusted_target_response)
     ic50_est = ifelse(is.na(ic50_est), NA, ic50_est)
   }, error = function(e) {
-    ic50_est <<- NA
+    ic50_est <- NA
   })
 
   if (is.na(ic50_est)) {

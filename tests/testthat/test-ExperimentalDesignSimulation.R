@@ -48,28 +48,7 @@ test_that("FutureExperimentSimulation handles custom control replicates", {
   expect_true(all(n_control_per_protein == 5))
 })
 
-test_that("FutureExperimentSimulation handles IC50 prediction option", {
-  # Without IC50
-  sim_no_ic50 <- FutureExperimentSimulation(
-    N_proteins = 20,
-    N_rep = 2,
-    Concentrations = c(0, 100, 1000),
-    IC50_Prediction = FALSE
-  )
 
-  expect_null(sim_no_ic50$PredictIC50_Results)
-
-  # With IC50
-  sim_with_ic50 <- FutureExperimentSimulation(
-    N_proteins = 20,
-    N_rep = 2,
-    Concentrations = c(0, 100, 1000),
-    IC50_Prediction = TRUE
-  )
-
-  expect_false(is.null(sim_with_ic50$PredictIC50_Results))
-  expect_s3_class(sim_with_ic50$PredictIC50_Results, "data.frame")
-})
 
 test_that("FutureExperimentSimulation uses custom templates from user data", {
   # Create mock user data

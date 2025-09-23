@@ -70,8 +70,8 @@ prepared_data <- MSstatsPrepareDoseResponseFit(
 # Example 1: Basic dose-response visualization
 plot1 <- VisualizeResponseProtein(
   data = prepared_data,
-  protein_name = "P12931",
-  drug_name = "Dasatinib",
+  protein_name = "PROTEIN_A",
+  drug_name = "Drug1",
   ratio_response = TRUE,
   show_ic50 = FALSE,
   add_ci = FALSE
@@ -81,8 +81,8 @@ print(plot1)
 # Example 2: Add IC50 annotation
 plot2 <- VisualizeResponseProtein(
   data = prepared_data,
-  protein_name = "P12931",
-  drug_name = "Dasatinib",
+  protein_name = "PROTEIN_A",
+  drug_name = "Drug1",
   ratio_response = TRUE,
   show_ic50 = TRUE,
   add_ci = FALSE
