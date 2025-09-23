@@ -8,6 +8,15 @@ The package is compatible with summarized protein-level data from [MSstats](http
 
 ## Installation
 
+Install from Bioconductor:
+
+```r
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("MSstatsResponse")
+```
+
 Install the development version from GitHub:
 
 ```r
