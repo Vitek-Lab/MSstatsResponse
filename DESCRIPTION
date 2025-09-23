@@ -6,7 +6,15 @@ Authors@R: c(
     person(
       "Sarah", "Szvetecz",
       email = "szvetecz.s@northeastern.edu",
-      role = c("aut", "cre")))
+      role = c("aut", "cre")),
+    person(
+      "Devon", "Kohler",
+      email = "kohler.d@northeastern.edu",
+      role = "aut"),
+    person(
+      "Olga", "Vitek",
+      email = "o.vitek@northeastern.edu",
+      role = "aut"))
 Description: Tools for detecting drug-protein interactions and estimating IC50 
     values from chemoproteomics data. Implements semi-parametric isotonic regression, 
     bootstrapping, and curve fitting to evaluate compound effects on protein abundance.
