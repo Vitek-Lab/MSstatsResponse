@@ -172,7 +172,7 @@ futureExperimentSimulation = function(N_proteins = 300,
                            transform_dose = TRUE,
                            ratio_response = FALSE,
                            bootstrap = TRUE,
-                           numberOfCores = 4)
+                           BPPARAM = BiocParallel::MulticoreParam(workers = 4))
   } else {
     IC50_Res = NULL
   }

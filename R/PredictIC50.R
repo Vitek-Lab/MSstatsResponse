@@ -7,7 +7,7 @@
 #' @param transform_dose Logical. If TRUE, applies log10(dose + 1) transformation. Default = TRUE.
 #' @param ratio_response Logical. If TRUE, use ratio response; else use log2 scale. Default = TRUE.
 #' @param bootstrap Logical. If FALSE, skip confidence interval bootstrap estimation and only return IC50. Default = TRUE.
-#' @param numberOfCores Number of cores for parallel processing. Default = 1.
+#' @param BPPARAM BiocParallelParam object for parallel processing. Default = BiocParallel::SerialParam().
 #' @param target_response Numeric, the response fraction (e.g., 0.5, 0.25, 0.75). Default = 0.5.
 #'
 #' @return A data frame with columns: protein, drug, IC50, IC50_lower_bound, IC50_upper_bound.
@@ -53,11 +53,13 @@
 #'   ratio_response = TRUE,
 #'   bootstrap = TRUE
 #' )
+#'
 #' # Example 3: Parallel processing for large datasets
+#' library(BiocParallel)
 #' ic50_parallel <- predictIC50(
 #'   data = prepared_data,
 #'   n_samples = 1000,
-#'   numberOfCores = 4,
+#'   BPPARAM = MulticoreParam(workers = 4),
 #'   bootstrap = TRUE
 #' )
 #'
@@ -70,9 +72,9 @@
 #' }
 #'
 #' @export
-#' @importFrom parallel makeCluster stopCluster parLapply clusterExport
+#' @importFrom BiocParallel bplapply SerialParam
 #' @importFrom data.table rbindlist
-#' @importFrom dplyr filter select mutate group_by summarise arrange distinct
+#' @importFrom dplyr filter distinct
 predictIC50 = function(data,
                        n_samples = 1000,
                        alpha = 0.10,
@@ -80,28 +82,34 @@ predictIC50 = function(data,
                        transform_dose = TRUE,
                        ratio_response = TRUE,
                        bootstrap = TRUE,
-                       numberOfCores = 1,
+                       BPPARAM = BiocParallel::SerialParam(),
                        target_response = 0.5) {
 
-  if (numberOfCores == 1){
-    results = .singleCoreIC50(data,
-                              n_samples,
-                              alpha,
-                              increasing,
-                              transform_dose,
-                              ratio_response,
-                              bootstrap,
-                              target_response)
-  } else{
-    results = .multiCoreIC50(data,
-                             n_samples,
-                             alpha,
-                             increasing,
-                             transform_dose,
-                             ratio_response,
-                             bootstrap,
-                             numberOfCores,
-                             target_response)
-  }
-  return(results)
+  # Create list of protein-drug combinations to process
+  loop_list = data %>%
+    distinct(drug, protein) %>%
+    filter(drug != "DMSO")
+
+  # Process each combination
+  test_results = BiocParallel::bplapply(seq_len(nrow(loop_list)), function(i) {
+    temp = loop_list[i, ]
+    data_subset = data %>%
+      dplyr::filter(drug %in% c("DMSO", temp[[1]]) & protein == temp[[2]])
+
+    .calcSingleIC50(
+      df = data_subset,
+      n_samples = n_samples,
+      alpha = alpha,
+      increasing = increasing,
+      transform_dose = transform_dose,
+      ratio_response = ratio_response,
+      bootstrap = bootstrap,
+      prot = temp[[2]],
+      drug_type = temp[[1]],
+      target_response = target_response
+    )
+  }, BPPARAM = BPPARAM)
+
+  # Combine results
+  return(rbindlist(test_results))
 }

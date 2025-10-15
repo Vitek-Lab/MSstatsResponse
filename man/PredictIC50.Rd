@@ -12,7 +12,7 @@ predictIC50(
   transform_dose = TRUE,
   ratio_response = TRUE,
   bootstrap = TRUE,
-  numberOfCores = 1,
+  BPPARAM = BiocParallel::SerialParam(),
   target_response = 0.5
 )
 }
@@ -31,7 +31,7 @@ predictIC50(
 
 \item{bootstrap}{Logical. If FALSE, skip confidence interval bootstrap estimation and only return IC50. Default = TRUE.}
 
-\item{numberOfCores}{Number of cores for parallel processing. Default = 1.}
+\item{BPPARAM}{BiocParallelParam object for parallel processing. Default = BiocParallel::SerialParam().}
 
 \item{target_response}{Numeric, the response fraction (e.g., 0.5, 0.25, 0.75). Default = 0.5.}
 }
@@ -82,11 +82,13 @@ ic50_results <- predictIC50(
   ratio_response = TRUE,
   bootstrap = TRUE
 )
+
 # Example 3: Parallel processing for large datasets
+library(BiocParallel)
 ic50_parallel <- predictIC50(
   data = prepared_data,
   n_samples = 1000,
-  numberOfCores = 4,
+  BPPARAM = MulticoreParam(workers = 4),
   bootstrap = TRUE
 )
 

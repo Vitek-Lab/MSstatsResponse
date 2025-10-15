@@ -29,8 +29,7 @@ test_that("predictIC50 returns correct structure", {
   results <- predictIC50(
     data = test_data,
     n_samples = 50,  # Small for speed
-    bootstrap = FALSE,
-    numberOfCores = 1
+    bootstrap = FALSE
   )
   })
 
@@ -145,30 +144,33 @@ test_that("predictIC50 handles different target responses", {
   expect_true(ic50$IC50[1] > ic25$IC50[1])
 })
 
+
 test_that("predictIC50 uses parallel processing when requested", {
   test_data <- create_multi_protein_data()
 
   # Time single core
   time_single <- system.time({
     suppressWarnings({
-    results_single <- predictIC50(
-      data = test_data,
-      n_samples = 50,
-      bootstrap = TRUE,
-      numberOfCores = 1
-    )
+      results_single <- predictIC50(
+        data = test_data,
+        n_samples = 50,
+        bootstrap = TRUE,
+        BPPARAM = BiocParallel::SerialParam()
+      )
     })
   })
 
   # Time multi core (if available)
   if (parallel::detectCores() > 1) {
     time_multi <- system.time({
-      results_multi <- predictIC50(
-        data = test_data,
-        n_samples = 50,
-        bootstrap = TRUE,
-        numberOfCores = 2
-      )
+      suppressWarnings({
+        results_multi <- predictIC50(
+          data = test_data,
+          n_samples = 50,
+          bootstrap = TRUE,
+          BPPARAM = BiocParallel::MulticoreParam(workers = 2)
+        )
+      })
     })
 
     # Results should be similar

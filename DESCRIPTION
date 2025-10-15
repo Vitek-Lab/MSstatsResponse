@@ -26,6 +26,7 @@ Depends: R (>= 4.5.0)
 LazyData: false
 RoxygenNote: 7.3.3
 Imports:
+    BiocParallel,
     ggplot2,
     dplyr,
     stats,
