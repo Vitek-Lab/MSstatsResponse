@@ -249,11 +249,6 @@ IC50 represents the dose at which the response is reduced to 50% of the control 
 3. Computing confidence intervals via bootstrap resampling  
 
 
-### Scale considerations
-
-- **Log2 scale**: Best for interaction testing (stabilizes variance)
-- **Ratio scale**: Best for IC50 estimation (interpretable as fraction of control)
-
 ### Running predictIC50()
 
 ```{r predict_ic50, message=FALSE, warning=FALSE}
