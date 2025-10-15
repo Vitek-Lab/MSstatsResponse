@@ -6,7 +6,15 @@ Authors@R: c(
     person(
       "Sarah", "Szvetecz",
       email = "szvetecz.s@northeastern.edu",
-      role = c("aut", "cre")))
+      role = c("aut", "cre")), 
+    person(
+      "Devon", "Kohler",
+      email = "kohler.d@northeastern.edu",
+      role = c("aut")),
+    person(
+      "Olga", "Vitek",
+      email = "o.vitek@northeastern.edu",
+      role = c("aut")))
 Description: Tools for detecting drug-protein interactions and estimating IC50 
     values from chemoproteomics data. Implements semi-parametric isotonic regression, 
     bootstrapping, and curve fitting to evaluate compound effects on protein abundance.
@@ -18,18 +26,17 @@ Depends: R (>= 4.5.0)
 LazyData: false
 RoxygenNote: 7.3.3
 Imports:
-    MSstats,
-    MSstatsTMT,
     ggplot2,
     dplyr,
     stats,
     parallel,
-    data.table,
-    purrr,
-    tidyr
+    data.table
 Suggests:
+    MSstats,
+    MSstatsTMT,
     tidyverse,
     boot,
+    purrr,
     gridExtra,
     knitr,
     rmarkdown,
