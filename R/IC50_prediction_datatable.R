@@ -1,6 +1,6 @@
-#' Parallel version of PredictIC50 function
+#' Parallel version of predictIC50 function
 #'
-#' Runs PredictIC50 on the entire dataset in parallel across proteins.
+#' Runs predictIC50 on the entire dataset in parallel across proteins.
 #'
 #' @param data A data frame with columns: protein, drug, dose, response.
 #' @param n_samples Number of bootstrap samples. Default = 1000.
@@ -19,7 +19,7 @@
 #' dia_data <- readRDS(data_path)
 #'
 #' # Convert GROUP to dose
-#' dose_info <- ConvertGroupToNumericDose(dia_data$ProteinLevelData$GROUP)
+#' dose_info <- convertGroupToNumericDose(dia_data$ProteinLevelData$GROUP)
 #' dia_data$ProteinLevelData$dose <- dose_info$dose_nM * 1e-9
 #' dia_data$ProteinLevelData$drug <- dose_info$drug
 #'
@@ -37,7 +37,7 @@
 #'                               unique(prepared_data$protein)[1:5], ]
 #'
 #' # Example 1: Quick parallel IC50 without bootstrap (2 cores)
-#' ic50_quick_parallel <- PredictIC50Parallel(
+#' ic50_quick_parallel <- predictIC50Parallel(
 #'   data = example_data,
 #'   bootstrap = FALSE,
 #'   numberOfCores = 2
@@ -47,7 +47,7 @@
 #' @export
 #' @importFrom parallel makeCluster parLapply stopCluster clusterExport
 #' @import dplyr
-PredictIC50Parallel = function(data,
+predictIC50Parallel = function(data,
                                n_samples = 1000,
                                alpha = 0.10,
                                increasing = FALSE,
@@ -66,7 +66,7 @@ PredictIC50Parallel = function(data,
 
   # Export all required objects and functions to cluster workers
   parallel::clusterExport(cl,
-                          varlist = c("data", "PredictIC50", "n_samples", "alpha",
+                          varlist = c("data", "predictIC50", "n_samples", "alpha",
                                       "increasing", "transform_dose", "ratio_response", "bootstrap"),
                           envir = function_environment)
 
@@ -91,8 +91,8 @@ PredictIC50Parallel = function(data,
     data_subset = data[data$protein == temp[[2]] &
                          data$drug %in% c("DMSO", temp[[1]]), ]
 
-    # Run PredictIC50 on this subset
-    PredictIC50(data_subset,
+    # Run predictIC50 on this subset
+    predictIC50(data_subset,
                 n_samples = n_samples,
                 alpha = alpha,
                 increasing = increasing,

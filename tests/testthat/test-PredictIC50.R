@@ -1,5 +1,5 @@
-# test_PredictIC50.R
-# Unit tests for PredictIC50.R functions
+# test_predictIC50.R
+# Unit tests for predictIC50.R functions
 
 library(testthat)
 library(MSstatsResponse)
@@ -21,12 +21,12 @@ create_multi_protein_data <- function() {
   )
 }
 
-# Tests for main PredictIC50 function
-test_that("PredictIC50 returns correct structure", {
+# Tests for main predictIC50 function
+test_that("predictIC50 returns correct structure", {
   test_data <- create_multi_protein_data()
 
   suppressWarnings({
-  results <- PredictIC50(
+  results <- predictIC50(
     data = test_data,
     n_samples = 50,  # Small for speed
     bootstrap = FALSE,
@@ -39,7 +39,7 @@ test_that("PredictIC50 returns correct structure", {
   expect_equal(nrow(results), 3)  # 3 proteins
 })
 
-test_that("PredictIC50 processes all protein-drug combinations", {
+test_that("predictIC50 processes all protein-drug combinations", {
   test_data <- create_multi_protein_data()
   # Add another drug
   test_data2 <- test_data
@@ -47,7 +47,7 @@ test_that("PredictIC50 processes all protein-drug combinations", {
   combined_data <- rbind(test_data, test_data2)
 
   suppressWarnings({
-  results <- PredictIC50(
+  results <- predictIC50(
     data = combined_data,
     bootstrap = FALSE
   )
@@ -57,11 +57,11 @@ test_that("PredictIC50 processes all protein-drug combinations", {
   expect_equal(sort(unique(results$drug)), c("Drug1", "Drug2"))
 })
 
-test_that("PredictIC50 handles bootstrap option", {
+test_that("predictIC50 handles bootstrap option", {
   test_data <- create_multi_protein_data()[1:12, ]  # Just P1 for speed
 
   # Without bootstrap
-  results_no_boot <- PredictIC50(
+  results_no_boot <- predictIC50(
     data = test_data,
     bootstrap = FALSE
   )
@@ -70,7 +70,7 @@ test_that("PredictIC50 handles bootstrap option", {
   expect_true(all(is.na(results_no_boot$IC50_upper_bound)))
 
   # With bootstrap
-  results_boot <- PredictIC50(
+  results_boot <- predictIC50(
     data = test_data,
     n_samples = 50,
     bootstrap = TRUE
@@ -80,16 +80,16 @@ test_that("PredictIC50 handles bootstrap option", {
   expect_false(all(is.na(results_boot$IC50_upper_bound)))
 })
 
-test_that("PredictIC50 respects transform_dose parameter", {
+test_that("predictIC50 respects transform_dose parameter", {
   test_data <- create_multi_protein_data()[1:12, ]
 
-  results_transform <- PredictIC50(
+  results_transform <- predictIC50(
     data = test_data,
     transform_dose = TRUE,
     bootstrap = FALSE
   )
 
-  results_no_transform <- PredictIC50(
+  results_no_transform <- predictIC50(
     data = test_data,
     transform_dose = FALSE,
     bootstrap = FALSE
@@ -99,16 +99,16 @@ test_that("PredictIC50 respects transform_dose parameter", {
   expect_false(isTRUE(all.equal(results_transform$IC50, results_no_transform$IC50)))
 })
 
-test_that("PredictIC50 handles ratio vs log scale", {
+test_that("predictIC50 handles ratio vs log scale", {
   test_data <- create_multi_protein_data()[1:12, ]
 
-  results_ratio <- PredictIC50(
+  results_ratio <- predictIC50(
     data = test_data,
     ratio_response = TRUE,
     bootstrap = FALSE
   )
 
-  results_log <- PredictIC50(
+  results_log <- predictIC50(
     data = test_data,
     ratio_response = FALSE,
     bootstrap = FALSE
@@ -118,22 +118,22 @@ test_that("PredictIC50 handles ratio vs log scale", {
   expect_false(isTRUE(all.equal(results_ratio$IC50, results_log$IC50)))
 })
 
-test_that("PredictIC50 handles different target responses", {
+test_that("predictIC50 handles different target responses", {
   test_data <- create_multi_protein_data()[1:12, ]
 
-  ic25 <- PredictIC50(
+  ic25 <- predictIC50(
     data = test_data,
     target_response = 0.25,
     bootstrap = FALSE
   )
 
-  ic50 <- PredictIC50(
+  ic50 <- predictIC50(
     data = test_data,
     target_response = 0.50,
     bootstrap = FALSE
   )
 
-  ic75 <- PredictIC50(
+  ic75 <- predictIC50(
     data = test_data,
     target_response = 0.75,
     bootstrap = FALSE
@@ -145,13 +145,13 @@ test_that("PredictIC50 handles different target responses", {
   expect_true(ic50$IC50[1] > ic25$IC50[1])
 })
 
-test_that("PredictIC50 uses parallel processing when requested", {
+test_that("predictIC50 uses parallel processing when requested", {
   test_data <- create_multi_protein_data()
 
   # Time single core
   time_single <- system.time({
     suppressWarnings({
-    results_single <- PredictIC50(
+    results_single <- predictIC50(
       data = test_data,
       n_samples = 50,
       bootstrap = TRUE,
@@ -163,7 +163,7 @@ test_that("PredictIC50 uses parallel processing when requested", {
   # Time multi core (if available)
   if (parallel::detectCores() > 1) {
     time_multi <- system.time({
-      results_multi <- PredictIC50(
+      results_multi <- predictIC50(
         data = test_data,
         n_samples = 50,
         bootstrap = TRUE,
@@ -176,9 +176,9 @@ test_that("PredictIC50 uses parallel processing when requested", {
   }
 })
 
-# In test-PredictIC50.R, update the test to suppress the expected warning:
+# In test-predictIC50.R, update the test to suppress the expected warning:
 
-test_that("PredictIC50 handles proteins with no dose response", {
+test_that("predictIC50 handles proteins with no dose response", {
   # Flat response data
   flat_data <- data.frame(
     protein = rep("P_flat", 6),
@@ -189,7 +189,7 @@ test_that("PredictIC50 handles proteins with no dose response", {
 
   # Suppress the expected warning about target not reached
   suppressWarnings({
-    results <- PredictIC50(
+    results <- predictIC50(
       data = flat_data,
       bootstrap = FALSE
     )
@@ -199,7 +199,7 @@ test_that("PredictIC50 handles proteins with no dose response", {
   expect_true(is.na(results$IC50) || results$IC50 > 5)
 })
 
-test_that("PredictIC50 filters out DMSO-only proteins", {
+test_that("predictIC50 filters out DMSO-only proteins", {
   dmso_only <- data.frame(
     protein = "P1",
     drug = "DMSO",
@@ -207,7 +207,7 @@ test_that("PredictIC50 filters out DMSO-only proteins", {
     response = c(20, 20.1, 19.9)
   )
 
-  results <- PredictIC50(
+  results <- predictIC50(
     data = dmso_only,
     bootstrap = FALSE
   )
@@ -215,7 +215,7 @@ test_that("PredictIC50 filters out DMSO-only proteins", {
   expect_equal(nrow(results), 0)
 })
 
-test_that("PredictIC50 handles missing data appropriately", {
+test_that("predictIC50 handles missing data appropriately", {
   incomplete_data <- data.frame(
     protein = c("P1", "P1", "P1", "P2"),
     drug = c("DMSO", "Drug1", "Drug1", "Drug1"),
@@ -225,7 +225,7 @@ test_that("PredictIC50 handles missing data appropriately", {
 
   # P2 has no DMSO, should get NA
   expect_warning(
-    results <- PredictIC50(
+    results <- predictIC50(
       data = incomplete_data,
       bootstrap = FALSE
     ),
@@ -239,10 +239,10 @@ test_that("PredictIC50 handles missing data appropriately", {
 })
 
 
-test_that("PredictIC50 returns pIC50 values", {
+test_that("predictIC50 returns pIC50 values", {
   test_data <- create_multi_protein_data()[1:12, ]
 
-  results <- PredictIC50(
+  results <- predictIC50(
     data = test_data,
     bootstrap = FALSE
   )
@@ -253,7 +253,7 @@ test_that("PredictIC50 returns pIC50 values", {
   expect_true(results$IC50[1] < 20)  # But reasonable
 })
 
-test_that("PredictIC50 handles edge case doses", {
+test_that("predictIC50 handles edge case doses", {
   edge_data <- data.frame(
     protein = rep("P1", 6),
     drug = c(rep("DMSO", 3), rep("Drug1", 3)),
@@ -261,7 +261,7 @@ test_that("PredictIC50 handles edge case doses", {
     response = c(20, 20, 20, 18, 10, 5)
   )
 
-  results <- PredictIC50(
+  results <- predictIC50(
     data = edge_data,
     bootstrap = FALSE,
     transform_dose = TRUE

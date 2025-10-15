@@ -21,7 +21,7 @@
 #' dia_data <- readRDS(data_path)
 #'
 #' # Convert GROUP to dose
-#' dose_info <- ConvertGroupToNumericDose(dia_data$ProteinLevelData$GROUP)
+#' dose_info <- convertGroupToNumericDose(dia_data$ProteinLevelData$GROUP)
 #' dia_data$ProteinLevelData$dose <- dose_info$dose_nM * 1e-9
 #' dia_data$ProteinLevelData$drug <- dose_info$drug
 #'
@@ -35,7 +35,7 @@
 #' )
 #'
 #' # Example 1: Basic dose-response visualization
-#' plot1 <- VisualizeResponseProtein(
+#' plot1 <- visualizeResponseProtein(
 #'   data = prepared_data,
 #'   protein_name = "PROTEIN_A",
 #'   drug_name = "Drug1",
@@ -46,7 +46,7 @@
 #' print(plot1)
 #'
 #' # Example 2: Add IC50 annotation
-#' plot2 <- VisualizeResponseProtein(
+#' plot2 <- visualizeResponseProtein(
 #'   data = prepared_data,
 #'   protein_name = "PROTEIN_A",
 #'   drug_name = "Drug1",
@@ -57,7 +57,7 @@
 #' print(plot2)
 #'
 #' @export
-VisualizeResponseProtein = function(data,
+visualizeResponseProtein = function(data,
                                     protein_name,
                                     drug_name,
                                     ratio_response = TRUE,
@@ -92,7 +92,7 @@ VisualizeResponseProtein = function(data,
   ci_bounds = NULL
   if (add_ci) {
     suppressWarnings({
-    ic50_est = PredictIC50(data_single,
+    ic50_est = predictIC50(data_single,
                            ratio_response = ratio_response,
                            transform_dose = transform_dose,
                            increasing = increasing,
@@ -203,7 +203,7 @@ plotIsotonic = function(fit,
       target_response = mean(orig_df$y[dmso_idx], na.rm = TRUE) - 1
     }
 
-    ic50_pred = predictIC50(fit, target_response = target_response)
+    ic50_pred = PredictIC50(fit, target_response = target_response)
 
     # fix approx warning for handling duplicate x values
     if (length(unique(fit$x)) < length(fit$x)) {

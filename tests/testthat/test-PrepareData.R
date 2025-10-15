@@ -4,42 +4,42 @@
 library(testthat)
 library(MSstatsResponse)
 
-# Tests for ConvertGroupToNumericDose
-test_that("ConvertGroupToNumericDose handles DMSO correctly", {
-  result <- ConvertGroupToNumericDose("DMSO")
+# Tests for convertGroupToNumericDose
+test_that("convertGroupToNumericDose handles DMSO correctly", {
+  result <- convertGroupToNumericDose("DMSO")
   expect_equal(result$dose_nM, 0)
   expect_equal(result$drug, "DMSO")
 })
 
-test_that("ConvertGroupToNumericDose converts uM to nM correctly", {
+test_that("convertGroupToNumericDose converts uM to nM correctly", {
   groups <- c("Dasatinib_001uM", "Dasatinib_010uM", "Dasatinib_100uM")
-  result <- ConvertGroupToNumericDose(groups)
+  result <- convertGroupToNumericDose(groups)
   expect_equal(result$dose_nM, c(1000, 10000, 100000))
   expect_equal(unique(result$drug), "Dasatinib")
 })
 
-test_that("ConvertGroupToNumericDose handles nM units correctly", {
+test_that("convertGroupToNumericDose handles nM units correctly", {
   groups <- c("Imatinib_100nM", "Imatinib_1000nM")
-  result <- ConvertGroupToNumericDose(groups)
+  result <- convertGroupToNumericDose(groups)
   expect_equal(result$dose_nM, c(100, 1000))
   expect_equal(unique(result$drug), "Imatinib")
 })
 
-test_that("ConvertGroupToNumericDose handles mixed drugs", {
+test_that("convertGroupToNumericDose handles mixed drugs", {
   groups <- c("DMSO", "Dasatinib_001uM", "Imatinib_100nM")
-  result <- ConvertGroupToNumericDose(groups)
+  result <- convertGroupToNumericDose(groups)
   expect_equal(result$dose_nM, c(0, 1000, 100))
   expect_equal(result$drug, c("DMSO", "Dasatinib", "Imatinib"))
 })
 
-test_that("ConvertGroupToNumericDose handles decimal values", {
+test_that("convertGroupToNumericDose handles decimal values", {
   groups <- c("Drug_0.5uM", "Drug_1.5uM")
-  result <- ConvertGroupToNumericDose(groups)
+  result <- convertGroupToNumericDose(groups)
   expect_equal(result$dose_nM, c(500, 1500))
 })
 
-test_that("ConvertGroupToNumericDose returns data.frame with correct structure", {
-  result <- ConvertGroupToNumericDose(c("DMSO", "Drug_001uM"))
+test_that("convertGroupToNumericDose returns data.frame with correct structure", {
+  result <- convertGroupToNumericDose(c("DMSO", "Drug_001uM"))
   expect_s3_class(result, "data.frame")
   expect_named(result, c("drug", "dose_nM"))
   expect_type(result$dose_nM, "double")

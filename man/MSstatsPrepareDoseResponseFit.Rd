@@ -42,7 +42,7 @@ dia_data <- readRDS(data_path)
 
 # Example 1: Basic data preparation with dose already in M
 # First add dose column if using GROUP labels
-dose_info <- ConvertGroupToNumericDose(dia_data$ProteinLevelData$GROUP)
+dose_info <- convertGroupToNumericDose(dia_data$ProteinLevelData$GROUP)
 dia_data$ProteinLevelData$dose <- dose_info$dose_nM * 1e-9  # Convert to M
 dia_data$ProteinLevelData$drug <- dose_info$drug
 

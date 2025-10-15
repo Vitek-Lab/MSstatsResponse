@@ -13,7 +13,7 @@
   results_list = list()
   cl = parallel::makeCluster(numberOfCores)
   parallel::clusterExport(cl, varlist = c("target_response", ".calcSingleIC50", "fitIsotonicRegression",
-                                          "predictIC50", "bootstrapIC50", "bootstrapIC50LogScale"),
+                                          "PredictIC50", "bootstrapIC50", "bootstrapIC50LogScale"),
                           envir = environment())
   loop_list = data %>% distinct(drug, protein) %>% filter(drug != "DMSO")
 
@@ -151,7 +151,7 @@
                                     transform_x = transform_dose,
                                     ratio_y = ratio_response,
                                     test_significance = FALSE)
-    ic50_est = predictIC50(fit_try, target_response = adjusted_target_response)
+    ic50_est = PredictIC50(fit_try, target_response = adjusted_target_response)
     ic50_est = ifelse(is.na(ic50_est), NA, ic50_est)
   }, error = function(e) {
     ic50_est <- NA
@@ -209,7 +209,7 @@
 #'
 #' @return Estimated dose value corresponding to target response (IC50)
 #' @importFrom stats approx
-predictIC50 = function(fit, target_response = 0.5) {
+PredictIC50 = function(fit, target_response = 0.5) {
   dose = fit$x
   response = fit$y_pred
 
@@ -272,7 +272,7 @@ bootstrapIC50 = function(dose, response, n_samples = 1000, alpha = 0.10,
                                          transform_x = transform_x,
                                          ratio_y = TRUE,
                                          test_significance = FALSE)
-      ic50_est = predictIC50(fit_sample, target_response = target_response)
+      ic50_est = PredictIC50(fit_sample, target_response = target_response)
       ic50_vals[i] = ifelse(is.na(ic50_est), NA, ic50_est)
     }, error = function(e) {
       ic50_vals[i] = NA
@@ -336,7 +336,7 @@ bootstrapIC50LogScale = function(x, y, n_samples = 1000, alpha = 0.05,
                                          transform_x = TRUE,
                                          ratio_y = FALSE,
                                          test_significance = FALSE)
-      ic50_est = predictIC50(fit_sample, target_response = adjusted_target_response)
+      ic50_est = PredictIC50(fit_sample, target_response = adjusted_target_response)
       ic50_vals[i] = ifelse(is.na(ic50_est), NA, ic50_est)
     }, error = function(e) {
       ic50_vals[i] = NA

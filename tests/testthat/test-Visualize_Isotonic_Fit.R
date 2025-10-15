@@ -16,10 +16,10 @@ create_test_data <- function() {
   )
 }
 
-test_that("VisualizeResponseProtein returns ggplot object", {
+test_that("visualizeResponseProtein returns ggplot object", {
   test_data <- create_test_data()
 
-  plot <- VisualizeResponseProtein(
+  plot <- visualizeResponseProtein(
     data = test_data,
     protein_name = "P1",
     drug_name = "Drug1",
@@ -30,10 +30,10 @@ test_that("VisualizeResponseProtein returns ggplot object", {
   expect_s3_class(plot, "ggplot")
 })
 
-test_that("VisualizeResponseProtein handles ratio_response parameter", {
+test_that("visualizeResponseProtein handles ratio_response parameter", {
   test_data <- create_test_data()
 
-  plot_ratio <- VisualizeResponseProtein(
+  plot_ratio <- visualizeResponseProtein(
     data = test_data,
     protein_name = "P1",
     drug_name = "Drug1",
@@ -42,7 +42,7 @@ test_that("VisualizeResponseProtein handles ratio_response parameter", {
     add_ci = FALSE
   )
 
-  plot_log <- VisualizeResponseProtein(
+  plot_log <- visualizeResponseProtein(
     data = test_data,
     protein_name = "P1",
     drug_name = "Drug1",
@@ -55,12 +55,12 @@ test_that("VisualizeResponseProtein handles ratio_response parameter", {
   expect_s3_class(plot_log, "ggplot")
 })
 
-test_that("VisualizeResponseProtein filters data correctly", {
+test_that("visualizeResponseProtein filters data correctly", {
   test_data <- create_test_data()
   test_data$protein[1] <- "P3"  # Add another protein
 
   # This should only use P1 and Drug1/DMSO data
-  plot <- VisualizeResponseProtein(
+  plot <- visualizeResponseProtein(
     data = test_data,
     protein_name = "P1",
     drug_name = "Drug1",
@@ -71,10 +71,10 @@ test_that("VisualizeResponseProtein filters data correctly", {
   expect_s3_class(plot, "ggplot")
 })
 
-test_that("VisualizeResponseProtein handles IC50 display", {
+test_that("visualizeResponseProtein handles IC50 display", {
   test_data <- create_test_data()
 
-  plot_with_ic50 <- VisualizeResponseProtein(
+  plot_with_ic50 <- visualizeResponseProtein(
     data = test_data,
     protein_name = "P1",
     drug_name = "Drug1",
@@ -85,11 +85,11 @@ test_that("VisualizeResponseProtein handles IC50 display", {
   expect_s3_class(plot_with_ic50, "ggplot")
 })
 
-test_that("VisualizeResponseProtein handles custom y_lab", {
+test_that("visualizeResponseProtein handles custom y_lab", {
   test_data <- create_test_data()
 
   custom_label <- "Custom Y Label"
-  plot <- VisualizeResponseProtein(
+  plot <- visualizeResponseProtein(
     data = test_data,
     protein_name = "P1",
     drug_name = "Drug1",
@@ -101,12 +101,12 @@ test_that("VisualizeResponseProtein handles custom y_lab", {
   expect_s3_class(plot, "ggplot")
 })
 
-test_that("VisualizeResponseProtein handles missing protein", {
+test_that("visualizeResponseProtein handles missing protein", {
   test_data <- create_test_data()
 
   # Test with non-existent protein (will result in empty data)
   expect_error(
-    plot <- VisualizeResponseProtein(
+    plot <- visualizeResponseProtein(
       data = test_data,
       protein_name = "NonExistent",
       drug_name = "Drug1",

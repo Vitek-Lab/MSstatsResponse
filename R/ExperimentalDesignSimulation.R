@@ -21,7 +21,7 @@
 #'
 #' @examples
 #' # Example 1: Quick simulation with default templates (small scale for speed)
-#' sim_results <- FutureExperimentSimulation(
+#' sim_results <- futureExperimentSimulation(
 #'   N_proteins = 50,  # Small number for quick example
 #'   N_rep = 2,
 #'   N_Control_Rep = 3,
@@ -37,7 +37,7 @@
 #'
 #' \dontrun{
 #' # Example 2: Full simulation with standard parameters
-#' full_sim <- FutureExperimentSimulation(
+#' full_sim <- futureExperimentSimulation(
 #'   N_proteins = 3000,
 #'   N_rep = 3,
 #'   N_Control_Rep = 6,
@@ -54,7 +54,7 @@
 #'                          package = "MSstatsResponse")
 #' dia_data <- readRDS(data_path)
 #'
-#' dose_info <- ConvertGroupToNumericDose(dia_data$ProteinLevelData$GROUP)
+#' dose_info <- convertGroupToNumericDose(dia_data$ProteinLevelData$GROUP)
 #' dia_data$ProteinLevelData$dose <- dose_info$dose_nM * 1e-9
 #' dia_data$ProteinLevelData$drug <- dose_info$drug
 #'
@@ -67,7 +67,7 @@
 #' )
 #'
 #' # Run simulation with custom templates
-#' custom_sim <- FutureExperimentSimulation(
+#' custom_sim <- futureExperimentSimulation(
 #'   N_proteins = 1000,
 #'   N_rep = 3,
 #'   data = prepared_data,
@@ -80,7 +80,7 @@
 #'}
 #'
 #' @export
-FutureExperimentSimulation = function(N_proteins = 300,
+futureExperimentSimulation = function(N_proteins = 300,
                                       N_rep = 3,
                                       N_Control_Rep = NULL,
                                       Concentrations = c(0, 1, 3, 10, 30, 100,
@@ -156,7 +156,7 @@ FutureExperimentSimulation = function(N_proteins = 300,
     transform_nM_to_M = TRUE
   )
 
-  Interaction_Res = DoseResponseFit(msstats_format_simulated_data,
+  Interaction_Res = doseResponseFit(msstats_format_simulated_data,
                                     increasing = FALSE,
                                     transform_dose = TRUE,
                                     ratio_response = FALSE)
@@ -167,7 +167,7 @@ FutureExperimentSimulation = function(N_proteins = 300,
     concentration_count = length(Concentrations))
 
   if (IC50_Prediction) {
-    IC50_Res = PredictIC50(msstats_format_simulated_data,
+    IC50_Res = predictIC50(msstats_format_simulated_data,
                            increasing = FALSE,
                            transform_dose = TRUE,
                            ratio_response = FALSE,
@@ -476,7 +476,7 @@ simulateChemoProteinLevelNonParametric = function(N_proteins = 3000,
 
 #' Plot hit rates by category
 #'
-#' @param results Output of interaction test from DoseResponseFit()
+#' @param results Output of interaction test from doseResponseFit()
 #' @param rep_count Number of replicates per concentration in simulation
 #' @param concentration_count Number of concentrations in simulation
 #'

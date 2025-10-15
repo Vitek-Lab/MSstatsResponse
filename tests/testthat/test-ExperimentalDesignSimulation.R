@@ -10,9 +10,9 @@ validate_template_structure <- function(template) {
   all(sapply(template, function(x) all(required_cols %in% names(x))))
 }
 
-# Tests for FutureExperimentSimulation
-test_that("FutureExperimentSimulation returns correct structure", {
-  sim_results <- FutureExperimentSimulation(
+# Tests for futureExperimentSimulation
+test_that("futureExperimentSimulation returns correct structure", {
+  sim_results <- futureExperimentSimulation(
     N_proteins = 30,  # Small for speed
     N_rep = 2,
     N_Control_Rep = 3,
@@ -33,8 +33,8 @@ test_that("FutureExperimentSimulation returns correct structure", {
 })
 
 
-test_that("FutureExperimentSimulation handles custom control replicates", {
-  sim_results <- FutureExperimentSimulation(
+test_that("futureExperimentSimulation handles custom control replicates", {
+  sim_results <- futureExperimentSimulation(
     N_proteins = 30,
     N_rep = 2,
     N_Control_Rep = 5,  # Different from N_rep
@@ -50,7 +50,7 @@ test_that("FutureExperimentSimulation handles custom control replicates", {
 
 
 
-test_that("FutureExperimentSimulation uses custom templates from user data", {
+test_that("futureExperimentSimulation uses custom templates from user data", {
   # Create mock user data
   mock_data <- data.frame(
     protein = rep(c("P1", "P2", "P3"), each = 4),
@@ -61,7 +61,7 @@ test_that("FutureExperimentSimulation uses custom templates from user data", {
                  19, 19, 19, 19)  # P3
   )
 
-  sim_results <- FutureExperimentSimulation(
+  sim_results <- futureExperimentSimulation(
     N_proteins = 30,
     N_rep = 2,
     Concentrations = c(0, 1, 1000),  # nM scale
@@ -77,7 +77,7 @@ test_that("FutureExperimentSimulation uses custom templates from user data", {
   expect_true(validate_template_structure(sim_results$Template_Used))
 })
 
-test_that("FutureExperimentSimulation requires protein specification with custom data", {
+test_that("futureExperimentSimulation requires protein specification with custom data", {
   mock_data <- data.frame(
     protein = "P1",
     drug = c("DMSO", "Drug1"),
@@ -86,7 +86,7 @@ test_that("FutureExperimentSimulation requires protein specification with custom
   )
 
   expect_error(
-    FutureExperimentSimulation(
+    futureExperimentSimulation(
       N_proteins = 30,
       data = mock_data
       # No protein specifications

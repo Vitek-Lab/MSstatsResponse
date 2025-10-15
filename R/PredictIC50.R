@@ -19,7 +19,7 @@
 #' dia_data <- readRDS(data_path)
 #'
 #' # Convert GROUP to dose
-#' dose_info <- ConvertGroupToNumericDose(dia_data$ProteinLevelData$GROUP)
+#' dose_info <- convertGroupToNumericDose(dia_data$ProteinLevelData$GROUP)
 #' dia_data$ProteinLevelData$dose <- dose_info$dose_nM * 1e-9
 #' dia_data$ProteinLevelData$drug <- dose_info$drug
 #'
@@ -38,7 +38,7 @@
 #'
 #'
 #' # Example 1: Quick IC50 estimation without bootstrap (fast)
-#' ic50_quick <- PredictIC50(
+#' ic50_quick <- predictIC50(
 #'   data = example_data,
 #'   bootstrap = FALSE
 #' )
@@ -46,7 +46,7 @@
 #'
 #' \dontrun{
 #' # Example 2: Full IC50 estimation with bootstrap confidence intervals
-#' ic50_results <- PredictIC50(
+#' ic50_results <- predictIC50(
 #'   data = prepared_data,
 #'   n_samples = 1000,
 #'   alpha = 0.10,
@@ -54,7 +54,7 @@
 #'   bootstrap = TRUE
 #' )
 #' # Example 3: Parallel processing for large datasets
-#' ic50_parallel <- PredictIC50(
+#' ic50_parallel <- predictIC50(
 #'   data = prepared_data,
 #'   n_samples = 1000,
 #'   numberOfCores = 4,
@@ -62,7 +62,7 @@
 #' )
 #'
 #' # Example 4: IC50 at different response levels (IC25, IC75)
-#' ic25_results <- PredictIC50(
+#' ic25_results <- predictIC50(
 #'   data = prepared_data,
 #'   target_response = 0.25,
 #'   bootstrap = TRUE
@@ -73,7 +73,7 @@
 #' @importFrom parallel makeCluster stopCluster parLapply clusterExport
 #' @importFrom data.table rbindlist
 #' @importFrom dplyr filter select mutate group_by summarise arrange distinct
-PredictIC50 = function(data,
+predictIC50 = function(data,
                        n_samples = 1000,
                        alpha = 0.10,
                        increasing = FALSE,

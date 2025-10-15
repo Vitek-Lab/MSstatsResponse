@@ -7,7 +7,7 @@
 plotHitRateMSstatsResponse(results, rep_count, concentration_count)
 }
 \arguments{
-\item{results}{Output of interaction test from DoseResponseFit()}
+\item{results}{Output of interaction test from doseResponseFit()}
 
 \item{rep_count}{Number of replicates per concentration in simulation}
 

@@ -22,11 +22,11 @@ create_test_protein_data <- function() {
   )
 }
 
-# Tests for DoseResponseFit
-test_that("DoseResponseFit returns correct structure", {
+# Tests for doseResponseFit
+test_that("doseResponseFit returns correct structure", {
   test_data <- create_test_protein_data()
 
-  results <- DoseResponseFit(
+  results <- doseResponseFit(
     data = test_data,
     increasing = FALSE,
     transform_dose = TRUE,
@@ -41,10 +41,10 @@ test_that("DoseResponseFit returns correct structure", {
   expect_true("adjust_pval" %in% names(results))
 })
 
-test_that("DoseResponseFit processes all proteins", {
+test_that("doseResponseFit processes all proteins", {
   test_data <- create_test_protein_data()
 
-  results <- DoseResponseFit(
+  results <- doseResponseFit(
     data = test_data,
     increasing = FALSE
   )
@@ -53,14 +53,14 @@ test_that("DoseResponseFit processes all proteins", {
   expect_equal(unique(results$protein), c("P1", "P2", "P3"))
 })
 
-test_that("DoseResponseFit handles multiple drugs", {
+test_that("doseResponseFit handles multiple drugs", {
   test_data <- create_test_protein_data()
   # Add another drug
   test_data2 <- test_data
   test_data2$drug[test_data2$drug == "Drug1"] <- "Drug2"
   combined_data <- rbind(test_data, test_data2)
 
-  results <- DoseResponseFit(
+  results <- doseResponseFit(
     data = combined_data,
     increasing = FALSE
   )
@@ -70,14 +70,14 @@ test_that("DoseResponseFit handles multiple drugs", {
 })
 
 
-test_that("DoseResponseFit handles custom weights", {
+test_that("doseResponseFit handles custom weights", {
   test_data <- create_test_protein_data()
 
   # Create weights for the full dataset
   weights <- rep(1, nrow(test_data))
   weights[1:5] <- 2  # Give more weight to first observations
 
-  results <- DoseResponseFit(
+  results <- doseResponseFit(
     data = test_data,
     weights = weights,
     increasing = FALSE
@@ -89,7 +89,7 @@ test_that("DoseResponseFit handles custom weights", {
   expect_equal(length(unique(results$protein)), 3)
 })
 
-test_that("DoseResponseFit filters out DMSO from drug list", {
+test_that("doseResponseFit filters out DMSO from drug list", {
   test_data <- data.frame(
     protein = rep("P1", 3),
     drug = rep("DMSO", 3),
@@ -97,7 +97,7 @@ test_that("DoseResponseFit filters out DMSO from drug list", {
     response = c(20, 19.9, 20.1)
   )
 
-  results <- DoseResponseFit(data = test_data)
+  results <- doseResponseFit(data = test_data)
 
   # Should return empty data frame with correct structure
   expect_s3_class(results, "data.frame")
@@ -107,15 +107,15 @@ test_that("DoseResponseFit filters out DMSO from drug list", {
   expect_true("P_value" %in% names(results))
 })
 
-test_that("DoseResponseFit handles ratio_response parameter", {
+test_that("doseResponseFit handles ratio_response parameter", {
   test_data <- create_test_protein_data()
 
-  results_log <- DoseResponseFit(
+  results_log <- doseResponseFit(
     data = test_data,
     ratio_response = FALSE
   )
 
-  results_ratio <- DoseResponseFit(
+  results_ratio <- doseResponseFit(
     data = test_data,
     ratio_response = TRUE
   )

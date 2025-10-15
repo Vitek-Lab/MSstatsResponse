@@ -14,65 +14,65 @@ create_dose_response_data <- function(seed = 123) {
   return(list(dose = doses, response = responses))
 }
 
-# Tests for predictIC50
-test_that("predictIC50 finds IC50 when response crosses target", {
+# Tests for PredictIC50
+test_that("PredictIC50 finds IC50 when response crosses target", {
   # Create a simple monotonic fit
   mock_fit <- list(
     x = c(0, 1e-9, 1e-8, 1e-7, 1e-6),
     y_pred = c(1.0, 0.8, 0.6, 0.4, 0.2)
   )
 
-  ic50 <- predictIC50(mock_fit, target_response = 0.5)
+  ic50 <- PredictIC50(mock_fit, target_response = 0.5)
 
   # Should be between 1e-8 and 1e-7
   expect_true(ic50 > 1e-8 && ic50 < 1e-7)
 })
 
-test_that("predictIC50 returns exact dose when response matches target", {
+test_that("PredictIC50 returns exact dose when response matches target", {
   mock_fit <- list(
     x = c(0, 1e-9, 1e-8, 1e-7, 1e-6),
     y_pred = c(1.0, 0.8, 0.5, 0.3, 0.1)  # Exactly 0.5 at 1e-8
   )
 
-  ic50 <- predictIC50(mock_fit, target_response = 0.5)
+  ic50 <- PredictIC50(mock_fit, target_response = 0.5)
   expect_equal(ic50, 1e-8)
 })
 
-test_that("predictIC50 handles different target responses", {
+test_that("PredictIC50 handles different target responses", {
   mock_fit <- list(
     x = c(0, 1e-9, 1e-8, 1e-7, 1e-6),
     y_pred = c(1.0, 0.8, 0.6, 0.4, 0.2)
   )
 
-  ic25 <- predictIC50(mock_fit, target_response = 0.25)
-  ic50 <- predictIC50(mock_fit, target_response = 0.50)
-  ic75 <- predictIC50(mock_fit, target_response = 0.75)
+  ic25 <- PredictIC50(mock_fit, target_response = 0.25)
+  ic50 <- PredictIC50(mock_fit, target_response = 0.50)
+  ic75 <- PredictIC50(mock_fit, target_response = 0.75)
 
   # IC75 should be lower dose than IC50 than IC25 (for decreasing response)
   expect_true(ic75 < ic50)
   expect_true(ic50 < ic25)
 })
 
-test_that("predictIC50 returns NA when target not reached", {
+test_that("PredictIC50 returns NA when target not reached", {
   mock_fit <- list(
     x = c(0, 1e-9, 1e-8, 1e-7, 1e-6),
     y_pred = c(0.9, 0.8, 0.7, 0.6, 0.55)  # Never reaches 0.5
   )
 
   expect_warning(
-    ic50 <- predictIC50(mock_fit, target_response = 0.5),
+    ic50 <- PredictIC50(mock_fit, target_response = 0.5),
     "Target response value not reached"
   )
   expect_true(is.na(ic50))
 })
 
-test_that("predictIC50 handles increasing response", {
+test_that("PredictIC50 handles increasing response", {
   mock_fit <- list(
     x = c(0, 1e-9, 1e-8, 1e-7, 1e-6),
     y_pred = c(0.2, 0.4, 0.6, 0.8, 1.0)  # Increasing
   )
 
-  ic50 <- predictIC50(mock_fit, target_response = 0.5)
+  ic50 <- PredictIC50(mock_fit, target_response = 0.5)
   expect_true(ic50 > 1e-9 && ic50 < 1e-8)
 })
 

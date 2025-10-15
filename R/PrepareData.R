@@ -8,21 +8,21 @@
 #' # Example 1: Basic conversion with mixed units
 #' groups <- c("DMSO", "Dasatinib_001uM", "Dasatinib_010uM",
 #'             "Dasatinib_100nM", "Dasatinib_1000nM")
-#' dose_info <- ConvertGroupToNumericDose(groups)
+#' dose_info <- convertGroupToNumericDose(groups)
 #' print(dose_info)
 #'
 #' # Example 2: Handle multiple drugs
 #' multi_drug_groups <- c("DMSO",
 #'                       "Dasatinib_001uM", "Dasatinib_010uM",
 #'                       "Imatinib_001uM", "Imatinib_010uM")
-#' multi_dose_info <- ConvertGroupToNumericDose(multi_drug_groups)
+#' multi_dose_info <- convertGroupToNumericDose(multi_drug_groups)
 #' print(multi_dose_info)
 #'
 #' # Show unique drugs found
 #' print(unique(multi_dose_info$drug))
 #'
 #' @export
-ConvertGroupToNumericDose = function(group_vector) {
+convertGroupToNumericDose = function(group_vector) {
   group_vector = as.character(group_vector)
 
   dose_numeric = numeric(length(group_vector))
@@ -75,7 +75,7 @@ ConvertGroupToNumericDose = function(group_vector) {
 #'
 #' # Example 1: Basic data preparation with dose already in M
 #' # First add dose column if using GROUP labels
-#' dose_info <- ConvertGroupToNumericDose(dia_data$ProteinLevelData$GROUP)
+#' dose_info <- convertGroupToNumericDose(dia_data$ProteinLevelData$GROUP)
 #' dia_data$ProteinLevelData$dose <- dose_info$dose_nM * 1e-9  # Convert to M
 #' dia_data$ProteinLevelData$drug <- dose_info$drug
 #'

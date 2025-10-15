@@ -3,7 +3,7 @@
 #' Fits an isotonic regression model to protein abundance data.
 #' Performs an F-test to assess the significance of the dose-response curve and applies FDR correction.
 #'
-#' @param data Protein-level data, formatted with MSstatsPrepareDoseResponseFit().
+#' @param data Protein-level data, formatted with MSstatsPreparedoseResponseFit().
 #' @param weights Optional numeric vector of weights. Defaults to equal weights.
 #' @param increasing Logical. If TRUE, fits a non-decreasing model. If FALSE, fits non-increasing.
 #' @param transform_dose Logical. If TRUE, applies log10(dose + 1) transformation. Default is TRUE.
@@ -18,7 +18,7 @@
 #' dia_data <- readRDS(data_path)
 #'
 #' # Convert GROUP to dose
-#' dose_info <- ConvertGroupToNumericDose(dia_data$ProteinLevelData$GROUP)
+#' dose_info <- convertGroupToNumericDose(dia_data$ProteinLevelData$GROUP)
 #' dia_data$ProteinLevelData$dose <- dose_info$dose_nM * 1e-9
 #' dia_data$ProteinLevelData$drug <- dose_info$drug
 #'
@@ -36,7 +36,7 @@
 #'                               unique(prepared_data$protein)[1:5], ]
 #'
 #' # Example 1: Basic interaction detection on log2 scale
-#' interaction_results <- DoseResponseFit(
+#' interaction_results <- doseResponseFit(
 #'   data = example_data,
 #'   increasing = FALSE,
 #'   transform_dose = TRUE,
@@ -52,7 +52,7 @@
 #'
 #' \dontrun{
 #' # Example 2: Full dataset analysis
-#' full_results <- DoseResponseFit(
+#' full_results <- doseResponseFit(
 #'   data = prepared_data,
 #'   increasing = FALSE,
 #'   transform_dose = TRUE,
@@ -64,7 +64,7 @@
 #' @importFrom stats pf p.adjust
 #' @importFrom dplyr filter select mutate group_by summarise arrange distinct
 #' @importFrom data.table rbindlist
-DoseResponseFit = function(data, weights = NULL,
+doseResponseFit = function(data, weights = NULL,
                            increasing = FALSE,
                            transform_dose = TRUE,
                            ratio_response = FALSE) {
