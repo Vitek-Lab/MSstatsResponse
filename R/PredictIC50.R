@@ -72,7 +72,7 @@
 #' }
 #'
 #' @export
-#' @importFrom BiocParallel bplapply SerialParam
+#' @importFrom BiocParallel bplapply bpparam
 #' @importFrom data.table rbindlist
 #' @importFrom dplyr filter distinct
 predictIC50 = function(data,
@@ -82,7 +82,7 @@ predictIC50 = function(data,
                        transform_dose = TRUE,
                        ratio_response = TRUE,
                        bootstrap = TRUE,
-                       BPPARAM = BiocParallel::SerialParam(),
+                       BPPARAM = bpparam(),
                        target_response = 0.5) {
 
   # Create list of protein-drug combinations to process

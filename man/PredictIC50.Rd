@@ -12,7 +12,7 @@ predictIC50(
   transform_dose = TRUE,
   ratio_response = TRUE,
   bootstrap = TRUE,
-  BPPARAM = BiocParallel::SerialParam(),
+  BPPARAM = bpparam(),
   target_response = 0.5
 )
 }

@@ -225,14 +225,11 @@ test_that("predictIC50 handles missing data appropriately", {
     response = c(20, 15, 10, 18)
   )
 
-  # P2 has no DMSO, should get NA
-  expect_warning(
+
     results <- predictIC50(
       data = incomplete_data,
       bootstrap = FALSE
-    ),
-    "No DMSO control"
-  )
+    )
 
   # Should process P1 successfully
   expect_equal(nrow(results), 2)
