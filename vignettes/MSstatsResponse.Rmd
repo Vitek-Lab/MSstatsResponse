@@ -74,8 +74,13 @@ library(data.table)
  
 
 ## Data preprocessing with MSstats
+If analyzing a mass spectrometry-based proteomics dataset, data should be preprocessed using the standard MSstats workflow for cleaning, normalization, and protein summarization prior to analysis with MSstatsResponse.
 
-Before using MSstatsResponse, data should be processed through standard MSstats workflows for cleaning, normalization, and protein summarization.
+When using MSstats, data can be converted with one of the available converter functions (e.g., SpectronauttoMSstatsFormat()) and subsequently processed with dataProcess().
+
+For MSstatsTMT, converter functions (e.g., MaxQtoMSstatsTMTFormat()) may be used, followed by proteinSummarization() for data processing.
+
+Please refer to the MSstats and MSstatsTMT Bioconductor vignettes for a comprehensive list of supported converters and detailed preprocessing recommendations.
 
 ### Example MSstats workflow
 
