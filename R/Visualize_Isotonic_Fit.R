@@ -91,13 +91,15 @@ visualizeResponseProtein = function(data,
   # Optional: bootstrap CIs
   ci_bounds = NULL
   if (add_ci) {
+    target_response = ifelse(increasing, 1.5, 0.5)
     suppressWarnings({
     ic50_est = predictIC50(data_single,
                            ratio_response = ratio_response,
                            transform_dose = transform_dose,
                            increasing = increasing,
                            n_samples = n_samples,
-                           alpha = alpha)
+                           alpha = alpha,
+                           target_response = target_response)
     })
     ci_bounds = list(
       ci_lower = ic50_est$IC50_lower_bound,

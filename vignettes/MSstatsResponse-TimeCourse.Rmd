@@ -157,14 +157,7 @@ dia_prepared <- MSstatsPrepareDoseResponseFit(
   transform_nM_to_M = TRUE  
 )
 
-# Examine prepared data structure
-str(dia_prepared)
-
-# View sample of prepared data
-dia_prepared %>%
-  filter(protein %in% c("PROTEIN_A", "PROTEIN_B")) %>%
-  arrange(protein, drug, dose) %>%
-  head(20)
+head(dia_prepared)
 ```
 
 ## Drug-protein interaction detection
@@ -249,7 +242,8 @@ MSstatsResponse estimates IC50 by:
 
 ```{r predict_ic50, message=FALSE, warning=FALSE}
 
-# Target response value not reached by fit warning appearing a lot
+# Confidence intervals don't seem to contain IC50 estimate??
+# Upper bound is lower than lower bound??
 
 # Estimate IC50 with bootstrap confidence intervals
 ic50_predictions <- predictIC50(
@@ -267,10 +261,11 @@ ic50_predictions_increasing <- predictIC50(
   data = dia_prepared,
   ratio_response = TRUE,     # Use ratio scale for IC50
   transform_dose = FALSE,     # Log-transform doses
-  increasing = FALSE,        # Decreasing response expected
+  increasing = TRUE,        # Decreasing response expected
   bootstrap = TRUE,          # Compute confidence intervals
   n_samples = 1000,         # Number of bootstrap samples
-  alpha = 0.10              # 90% confidence intervals
+  alpha = 0.10,              # 90% confidence intervals,
+  target_response = 1.5      # For increasing response
 )
 
 # View IC50 estimates
@@ -301,13 +296,14 @@ visualizeResponseProtein(
 # Visualize strong responder (increasing)
 visualizeResponseProtein(
   data = dia_prepared,
-  protein_name = "YBR117C",
+  protein_name = "YLL026W",
   drug_name = "T",
   ratio_response = TRUE,
   show_ic50 = TRUE,
   add_ci = TRUE,
   transform_dose = TRUE,
-  n_samples = 1000
+  n_samples = 1000,
+  increasing = TRUE
 )
 
  
