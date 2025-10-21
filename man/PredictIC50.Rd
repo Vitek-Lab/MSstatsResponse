@@ -31,7 +31,10 @@ predictIC50(
 
 \item{bootstrap}{Logical. If FALSE, skip confidence interval bootstrap estimation and only return IC50. Default = TRUE.}
 
-\item{BPPARAM}{BiocParallelParam object for parallel processing. Default = BiocParallel::SerialParam().}
+\item{BPPARAM}{A \code{BiocParallelParam} for parallel processing. The recommended usage
+is to \emph{register} a backend once (e.g., \code{register(MulticoreParam(workers=4))} on
+Linux/macOS or \code{register(SnowParam(workers=4, type="SOCK"))} on Windows) and pass
+\code{BPPARAM = bpparam()}. Default \code{bpparam()}.}
 
 \item{target_response}{Numeric, the response fraction (e.g., 0.5, 0.25, 0.75). Default = 0.5.}
 }
@@ -88,7 +91,7 @@ library(BiocParallel)
 ic50_parallel <- predictIC50(
   data = prepared_data,
   n_samples = 1000,
-  BPPARAM = MulticoreParam(workers = 4),
+  BPPARAM = bpparam(),
   bootstrap = TRUE
 )
 

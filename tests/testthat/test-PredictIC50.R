@@ -155,7 +155,7 @@ test_that("predictIC50 uses parallel processing when requested", {
         data = test_data,
         n_samples = 50,
         bootstrap = TRUE,
-        BPPARAM = BiocParallel::SerialParam()
+        BPPARAM = bpparam()
       )
     })
   })
@@ -168,7 +168,7 @@ test_that("predictIC50 uses parallel processing when requested", {
           data = test_data,
           n_samples = 50,
           bootstrap = TRUE,
-          BPPARAM = BiocParallel::MulticoreParam(workers = 2)
+          BPPARAM = bpparam()
         )
       })
     })

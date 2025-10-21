@@ -1,7 +1,7 @@
 Package: MSstatsResponse
 Type: Package
 Title: Statistical Methods for Chemoproteomics Dose-Response Analysis
-Version: 0.99.1
+Version: 0.99.2
 Authors@R: c(
     person(
       "Sarah", "Szvetecz",

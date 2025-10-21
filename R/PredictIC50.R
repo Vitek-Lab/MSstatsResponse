@@ -7,7 +7,10 @@
 #' @param transform_dose Logical. If TRUE, applies log10(dose + 1) transformation. Default = TRUE.
 #' @param ratio_response Logical. If TRUE, use ratio response; else use log2 scale. Default = TRUE.
 #' @param bootstrap Logical. If FALSE, skip confidence interval bootstrap estimation and only return IC50. Default = TRUE.
-#' @param BPPARAM BiocParallelParam object for parallel processing. Default = BiocParallel::SerialParam().
+#'@param BPPARAM A \code{BiocParallelParam} for parallel processing. The recommended usage
+#'   is to \emph{register} a backend once (e.g., \code{register(MulticoreParam(workers=4))} on
+#'   Linux/macOS or \code{register(SnowParam(workers=4, type="SOCK"))} on Windows) and pass
+#'   \code{BPPARAM = bpparam()}. Default \code{bpparam()}.
 #' @param target_response Numeric, the response fraction (e.g., 0.5, 0.25, 0.75). Default = 0.5.
 #'
 #' @return A data frame with columns: protein, drug, IC50, IC50_lower_bound, IC50_upper_bound.
@@ -59,7 +62,7 @@
 #' ic50_parallel <- predictIC50(
 #'   data = prepared_data,
 #'   n_samples = 1000,
-#'   BPPARAM = MulticoreParam(workers = 4),
+#'   BPPARAM = bpparam(),
 #'   bootstrap = TRUE
 #' )
 #'

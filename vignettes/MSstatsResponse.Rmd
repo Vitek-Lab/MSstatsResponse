@@ -22,6 +22,7 @@ knitr::opts_chunk$set(
   fig.width = 7,
   fig.height = 5
 )
+
 ```
 
 ## Introduction
@@ -280,6 +281,14 @@ ic50_predictions %>%
 For datasets with many proteins, use parallel processing:
 
 ```{r parallel_ic50, eval=FALSE}
+# Register a BiocParallel backend
+library(BiocParallel)
+if (.Platform$OS.type == "windows") {
+  register(SnowParam(workers = 4, type = "SOCK"))
+} else {
+  register(MulticoreParam(workers = 4))
+}
+
 # Parallel IC50 estimation (faster for large datasets)
 ic50_parallel <- predictIC50(
   data = dia_prepared,
@@ -287,8 +296,9 @@ ic50_parallel <- predictIC50(
   transform_dose = TRUE,
   bootstrap = TRUE,
   n_samples = 1000,
-  BPPARAM = BiocParallel::MulticoreParam(workers = 4)  # Use 4 CPU cores
+  BPPARAM = bpparam()  # use 4 CPU cores defined above
 )
+
 ```
 
  
