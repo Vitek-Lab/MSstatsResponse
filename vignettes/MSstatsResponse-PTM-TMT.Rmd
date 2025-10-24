@@ -1,0 +1,164 @@
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5
+)
+```
+
+### Install MSstatsResponse
+
+```{r install, eval=FALSE}
+# Install from Bioconductor
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+BiocManager::install("MSstatsResponse")
+```
+
+### Load required libraries
+
+```{r load_libraries, message=FALSE}
+library(MSstatsResponse)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(data.table)
+```
+
+## Data preparation for dose-response analysis
+
+### Converting GROUP labels to numeric doses
+
+```{r convert_doses}
+protein_level_data = read.csv("./hek293f_tr_quant_data.csv")
+protein_level_data = protein_level_data %>%
+  rename(RUN = Channel,
+         LogIntensities = Abundance,
+         GROUP = Condition,
+         SUBJECT = BioReplicate)
+
+# Convert GROUP labels to numeric doses
+group_to_dose_format_mapping = c(
+  "t0" = "DMSO",
+  "t1" = "T_1",
+  "t2" = "T_2",
+  "t3" = "T_3",
+  "t5" = "T_5",
+  "t7" = "T_7",
+  "t9" = "T_9",
+  "t12" = "T_12",
+  "t15" = "T_15"
+)
+protein_level_data$GROUP = group_to_dose_format_mapping[protein_level_data$GROUP]
+dose_info <- convertGroupToNumericDose(protein_level_data$GROUP)
+
+# Add dose and drug information to the dataset
+protein_level_data <- protein_level_data %>%
+  mutate(
+    dose_nM = dose_info$dose_nM,  # Dose in nanomolar
+    drug = dose_info$drug          # Drug name
+  )
+
+
+# View converted data
+protein_level_data %>%
+  select(Protein, GROUP, drug, dose_nM) %>%
+  head(10)
+```
+
+### Formatting data with MSstatsPrepareDoseResponseFit()
+
+```{r prepare_data}
+# Prepare data for dose-response fitting
+dia_prepared <- MSstatsPrepareDoseResponseFit(
+  data = protein_level_data,
+  dose_column = "dose_nM",
+  drug_column = "drug",
+  protein_column = "Protein",
+  log_abundance_column = "LogIntensities",
+  transform_nM_to_M = TRUE  
+)
+
+head(dia_prepared)
+```
+
+## Drug-protein interaction detection
+
+```{r fit_dose_response, message=FALSE, warning=FALSE}
+# Detect drug-protein interactions
+response_results_increasing <- doseResponseFit(
+  data = dia_prepared,
+  increasing = TRUE,       
+  transform_dose = FALSE,     # Apply log10(dose + 1) transformation
+  ratio_response = FALSE     # Stay on log2 scale for testing
+)
+
+response_results_decreasing <- doseResponseFit(
+  data = dia_prepared,
+  increasing = FALSE,        # Expect decreasing response
+  transform_dose = FALSE,     # Apply log10(dose + 1) transformation
+  ratio_response = FALSE     # Stay on log2 scale for testing
+)
+```
+
+## Visualization
+
+### Individual protein dose-response curves
+
+The `visualizeResponseProtein()` function creates publication-quality dose-response plots:
+
+```{r visualize_single, fig.height=5, fig.width=7}
+# Visualize strong responder (decreasing)
+visualizeResponseProtein(
+  data = dia_prepared,
+  protein_name = "P28482_Y187",
+  drug_name = "T",
+  ratio_response = TRUE,
+  show_ic50 = TRUE,
+  add_ci = TRUE,
+  transform_dose = FALSE,
+  n_samples = 1000,
+  increasing = TRUE
+)
+
+ 
+```
+
+### Putting in the format for MSstatsBioNet
+
+```{r}
+response_results_increasing <- response_results_increasing %>% 
+  rename(
+    adj.pvalue = adjust_pval,
+    log2FC = F_statistic,
+    Protein = protein
+  ) %>% filter(adj.pvalue < 0.2)
+response_results_decreasing <- response_results_decreasing %>%
+  rename(
+    adj.pvalue = adjust_pval,
+    log2FC = F_statistic,
+    Protein = protein
+  ) %>% filter(adj.pvalue < 0.2)
+```
+
+```{r}
+response_results_increasing$log2FC = response_results_increasing$log2FC / 10
+response_results_decreasing$log2FC = response_results_decreasing$log2FC * -1 / 10
+results = rbind(
+  response_results_increasing,
+  response_results_decreasing
+)
+results = results %>% select(Protein, log2FC, adj.pvalue)
+results = rbind(
+  results,
+  data.frame(
+    Protein = c("P00533", "P01133"),
+    log2FC = c(0,0),
+    adj.pvalue = c(1,1)
+  )
+)
+write.csv(results, file = "MSstatsResponse_results_for_MSstatsBioNet.csv", row.names = FALSE)
+```
