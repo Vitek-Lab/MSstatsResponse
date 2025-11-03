@@ -8,6 +8,7 @@ plotIsotonic(
   fit,
   ratio = TRUE,
   show_ic50 = FALSE,
+  target_response = target_response,
   drug_name = NULL,
   protein_name = NULL,
   x_lab = expression(Log[10] ~ "[drug (M)]"),

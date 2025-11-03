@@ -63,6 +63,7 @@ visualizeResponseProtein = function(data,
                                     ratio_response = TRUE,
                                     transform_dose = TRUE,
                                     show_ic50 = TRUE,
+                                    target_response = 0.5,
                                     add_ci = FALSE,
                                     n_samples = 1000,
                                     alpha = 0.10,
@@ -96,6 +97,7 @@ visualizeResponseProtein = function(data,
                            ratio_response = ratio_response,
                            transform_dose = transform_dose,
                            increasing = increasing,
+                           target_response = target_response,
                            n_samples = n_samples,
                            alpha = alpha)
     })
@@ -109,6 +111,7 @@ visualizeResponseProtein = function(data,
     fit = fit,
     ratio = ratio_response,
     show_ic50 = show_ic50,
+    target_response = target_response,
     ci = ci_bounds,
     drug_name = drug_name,
     protein_name = protein_name,
@@ -142,6 +145,7 @@ visualizeResponseProtein = function(data,
 plotIsotonic = function(fit,
                         ratio = TRUE,
                         show_ic50 = FALSE,
+                        target_response = target_response,
                         drug_name = NULL,
                         protein_name = NULL,
                         x_lab = expression(Log[10] ~ "[drug (M)]"),
@@ -197,7 +201,7 @@ plotIsotonic = function(fit,
   # Optional IC50
   if (show_ic50) {
     if (ratio) {
-      target_response = 0.5
+      target_response = target_response
     } else {
       dmso_idx = which(orig_df$x == -Inf)
       target_response = mean(orig_df$y[dmso_idx], na.rm = TRUE) - 1
