@@ -47,7 +47,7 @@
 #' print(interaction_results)
 #'
 #' # Check significant interactions
-#' significant <- interaction_results[interaction_results$adjust_pval < 0.05, ]
+#' significant <- interaction_results[interaction_results$adj.pvalue < 0.05, ]
 #' print(paste("Found", nrow(significant), "significant interactions"))
 #'
 #' \dontrun{
@@ -80,7 +80,7 @@ doseResponseFit = function(data, weights = NULL,
       SSE_Null = numeric(),
       F_statistic = numeric(),
       P_value = numeric(),
-      adjust_pval = numeric(),
+      adj.pvalue = numeric(),
       stringsAsFactors = FALSE
     ))
   }
@@ -139,7 +139,7 @@ doseResponseFit = function(data, weights = NULL,
     # Combine and adjust p-values for this drug
     if (length(results_list) > 0) {
       results_df = do.call(rbind, results_list)
-      results_df$adjust_pval = p.adjust(results_df$P_value, method = "BH")
+      results_df$adj.pvalue = p.adjust(results_df$P_value, method = "BH")
       all_results[[drug_type]] = results_df
     }
   }
@@ -153,7 +153,7 @@ doseResponseFit = function(data, weights = NULL,
       SSE_Null = numeric(),
       F_statistic = numeric(),
       P_value = numeric(),
-      adjust_pval = numeric(),
+      adj.pvalue = numeric(),
       stringsAsFactors = FALSE
     ))
   }

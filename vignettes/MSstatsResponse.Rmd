@@ -205,8 +205,8 @@ response_results <- doseResponseFit(
 
 # Examine results
 response_results %>%
-  select(protein, drug, F_statistic, P_value, adjust_pval) %>%
-  arrange(adjust_pval) %>%
+  select(protein, drug, F_statistic, P_value, adj.pvalue) %>%
+  arrange(adj.pvalue) %>%
   head(10)
 ```
 
@@ -216,16 +216,16 @@ response_results %>%
 
 - **P_value**: Raw p-value from F-test  
 
-- **adjust_pval**: FDR-adjusted p-value (Benjamini-Hochberg)  
+- **adj.pvalue**: FDR-adjusted p-value (Benjamini-Hochberg)  
 
 
-Proteins with `adjust_pval < 0.05` show significant dose-dependent responses.  
+Proteins with `adj.pvalue < 0.05` show significant dose-dependent responses.  
 
 
 ```{r summarize_results}
 # Count significant interactions
 n_total <- nrow(response_results)
-n_significant <- sum(response_results$adjust_pval < 0.05)
+n_significant <- sum(response_results$adj.pvalue < 0.05)
 
 cat("Total protein-drug pairs tested:", n_total, "\n")
 cat("Significant interactions (FDR < 0.05):", n_significant, "\n")
@@ -233,8 +233,8 @@ cat("Percentage significant:", round(100 * n_significant/n_total, 1), "%\n")
 
 # Top hits
 top_hits <- response_results %>%
-  filter(adjust_pval < 0.05) %>%
-  arrange(adjust_pval) %>%
+  filter(adj.pvalue < 0.05) %>%
+  arrange(adj.pvalue) %>%
   head(5)
 
 print(top_hits)
