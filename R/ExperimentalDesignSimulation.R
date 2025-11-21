@@ -490,7 +490,7 @@ plotHitRateMSstatsResponse = function(results, rep_count, concentration_count) {
 
   # Use correct column for filtering
   filtered_dt = dt %>%
-    dplyr::filter(adjust_pval < 0.05)
+    dplyr::filter(adj.pvalue < 0.05)
 
   # Identify protein groups
   strong_proteins = dt %>%
