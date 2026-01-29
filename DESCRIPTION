@@ -31,7 +31,8 @@ Imports:
     dplyr,
     stats,
     parallel,
-    data.table
+    data.table,
+    utils
 Suggests:
     MSstats,
     MSstatsTMT,
