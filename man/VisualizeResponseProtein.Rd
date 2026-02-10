@@ -11,6 +11,7 @@ visualizeResponseProtein(
   ratio_response = TRUE,
   transform_dose = TRUE,
   show_ic50 = TRUE,
+  target_response = 0.5,
   add_ci = FALSE,
   n_samples = 1000,
   alpha = 0.1,

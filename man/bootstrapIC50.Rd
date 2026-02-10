@@ -27,7 +27,7 @@ bootstrapIC50(
 
 \item{target_response}{Numeric value for response level (default = 0.5).}
 
-\item{transform_x}{Logical. If TRUE, applies log10(dose + 1) transformation. Default = TRUE.}
+\item{transform_x}{Logical. If TRUE, applies log10(x + 1) transformation. Default = TRUE.}
 }
 \value{
 List with mean IC50, CI bounds, and transformed estimates.

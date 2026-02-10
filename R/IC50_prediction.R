@@ -93,7 +93,11 @@
       IC50_upper_bound = NA
     )
   } else {
-    ic50 = -log10(ic50_est)
+        if (transform_dose) {
+      ic50 = -log10(ic50_est)
+    } else {
+      ic50 = ic50_est
+    }
 
     if (bootstrap) {
       if(ratio_response){
@@ -101,14 +105,16 @@
           dose = x, response = y,
           n_samples = n_samples, alpha = alpha,
           increasing = increasing,
-          target_response = target_response
+          target_response = target_response,
+          transform_x = transform_dose
         )
       } else {
         bootstrap_res = bootstrapIC50LogScale(
           x = x, y = y,
           n_samples = n_samples, alpha = alpha,
           increasing = increasing,
-          target_response = target_response
+          target_response = target_response,
+          transform_x = transform_dose
         )
       }
       lower = as.numeric(bootstrap_res$ci_lower_transform)
@@ -172,7 +178,7 @@ PredictIC50 = function(fit, target_response = 0.5) {
 #' @param alpha Significance level for confidence interval (default = 0.10).
 #' @param increasing Logical. Fit non-decreasing if TRUE.
 #' @param target_response Numeric value for response level (default = 0.5).
-#' @param transform_x Logical. If TRUE, applies log10(dose + 1) transformation. Default = TRUE.
+#' @param transform_x Logical. If TRUE, applies log10(x + 1) transformation. Default = TRUE.
 #'
 #' @return List with mean IC50, CI bounds, and transformed estimates.
 #' @importFrom stats quantile
@@ -211,14 +217,24 @@ bootstrapIC50 = function(dose, response, n_samples = 1000, alpha = 0.10,
   ci_upper = stats::quantile(ic50_values_clean, 1 - alpha / 2, na.rm = TRUE)
   mean_ic50 = mean(ic50_values_clean, na.rm = TRUE)
 
+  if (transform_x) {
+    mean_ic50_transform = -log10(mean_ic50)
+    ci_lower_transform = -log10(ci_lower)
+    ci_upper_transform = -log10(ci_upper)
+  } else {
+    mean_ic50_transform = mean_ic50
+    ci_lower_transform = ci_lower
+    ci_upper_transform = ci_upper
+  }
+
   return(list(
     ic50_values = ic50_vals,
     mean_ic50 = mean_ic50,
     ci_lower = ci_lower,
     ci_upper = ci_upper,
-    mean_ic50_transform = -log10(mean_ic50),
-    ci_lower_transform = -log10(ci_lower),
-    ci_upper_transform = -log10(ci_upper)
+    mean_ic50_transform = mean_ic50_transform,
+    ci_lower_transform = ci_lower_transform,
+    ci_upper_transform = ci_upper_transform
   ))
 }
 
@@ -231,11 +247,13 @@ bootstrapIC50 = function(dose, response, n_samples = 1000, alpha = 0.10,
 #' @param increasing Logical. Fit non-decreasing if TRUE.
 #' @param target_response Numeric value for response level (default = 0.5).
 #'
+#' @param transform_x Logical. If TRUE, applies log10(x + 1) transformation. Default = TRUE.
 #' @return List with mean IC50, CI bounds, and transformed estimates.
 #' @importFrom stats quantile
 #' @importFrom dplyr filter select mutate group_by summarise arrange distinct
 bootstrapIC50LogScale = function(x, y, n_samples = 1000, alpha = 0.05,
-                                 increasing = FALSE, target_response = 0.5) {
+                                 increasing = FALSE, target_response = 0.5,
+                                 transform_x = TRUE)  {
   ic50_vals = numeric(n_samples)
   df = data.frame(dose = x, response = y)
 
@@ -260,7 +278,7 @@ bootstrapIC50LogScale = function(x, y, n_samples = 1000, alpha = 0.05,
     tryCatch({
       fit_sample = fitIsotonicRegression(x_sample, y_sample,
                                          increasing = increasing,
-                                         transform_x = TRUE,
+                                         transform_x = transform_x,
                                          ratio_y = FALSE,
                                          test_significance = FALSE)
       ic50_est = PredictIC50(fit_sample, target_response = adjusted_target_response)
@@ -275,13 +293,23 @@ bootstrapIC50LogScale = function(x, y, n_samples = 1000, alpha = 0.05,
   ci_upper = stats::quantile(ic50_values_clean, 1 - alpha / 2, na.rm = TRUE)
   mean_ic50 = mean(ic50_values_clean, na.rm = TRUE)
 
+  if (transform_x) {
+    mean_ic50_transform = -log10(mean_ic50)
+    ci_lower_transform = -log10(ci_lower)
+    ci_upper_transform = -log10(ci_upper)
+  } else {
+    mean_ic50_transform = mean_ic50
+    ci_lower_transform = ci_lower
+    ci_upper_transform = ci_upper
+  }
+
   return(list(
     ic50_values = ic50_vals,
     mean_ic50 = mean_ic50,
     ci_lower = ci_lower,
     ci_upper = ci_upper,
-    mean_ic50_transform = -log10(mean_ic50),
-    ci_lower_transform = -log10(ci_lower),
-    ci_upper_transform = -log10(ci_upper)
+    mean_ic50_transform = mean_ic50_transform,
+    ci_lower_transform = ci_lower_transform,
+    ci_upper_transform = ci_upper_transform
   ))
 }

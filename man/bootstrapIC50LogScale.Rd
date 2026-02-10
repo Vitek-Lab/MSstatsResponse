@@ -10,7 +10,8 @@ bootstrapIC50LogScale(
   n_samples = 1000,
   alpha = 0.05,
   increasing = FALSE,
-  target_response = 0.5
+  target_response = 0.5,
+  transform_x = TRUE
 )
 }
 \arguments{
@@ -25,6 +26,8 @@ bootstrapIC50LogScale(
 \item{increasing}{Logical. Fit non-decreasing if TRUE.}
 
 \item{target_response}{Numeric value for response level (default = 0.5).}
+
+\item{transform_x}{Logical. If TRUE, applies log10(x + 1) transformation. Default = TRUE.}
 }
 \value{
 List with mean IC50, CI bounds, and transformed estimates.

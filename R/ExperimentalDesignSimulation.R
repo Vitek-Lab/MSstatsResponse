@@ -134,7 +134,7 @@ futureExperimentSimulation = function(N_proteins = 300,
     }
 
     template = readRDS(template1_path)  # Use template1 as default
-    # Note: You could also merge template1 and template3 or choose based on parameters
+
   }
 
   # Run simulation
