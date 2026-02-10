@@ -63,6 +63,7 @@ visualizeResponseProtein = function(data,
                                     ratio_response = TRUE,
                                     transform_dose = TRUE,
                                     show_ic50 = TRUE,
+                                    target_response = 0.5,
                                     add_ci = FALSE,
                                     n_samples = 1000,
                                     alpha = 0.10,
@@ -96,6 +97,7 @@ visualizeResponseProtein = function(data,
                            ratio_response = ratio_response,
                            transform_dose = transform_dose,
                            increasing = increasing,
+                           target_response = target_response,
                            n_samples = n_samples,
                            alpha = alpha)
     })
@@ -109,10 +111,12 @@ visualizeResponseProtein = function(data,
     fit = fit,
     ratio = ratio_response,
     show_ic50 = show_ic50,
+    target_response = target_response,
     ci = ci_bounds,
     drug_name = drug_name,
     protein_name = protein_name,
-    y_lab = y_lab
+    y_lab = y_lab,
+    transform_x = transform_dose
   )
 
   return(p)
@@ -142,6 +146,7 @@ visualizeResponseProtein = function(data,
 plotIsotonic = function(fit,
                         ratio = TRUE,
                         show_ic50 = FALSE,
+                        target_response = target_response,
                         drug_name = NULL,
                         protein_name = NULL,
                         x_lab = expression(Log[10] ~ "[drug (M)]"),
@@ -150,7 +155,8 @@ plotIsotonic = function(fit,
                         ci = NULL,
                         legend = FALSE,
                         theme_style = "classic",
-                        original_label = FALSE) {
+                        original_label = FALSE,
+                        transform_x = TRUE) {
 
   # Construct title if not provided
   if (is.null(title) && !is.null(drug_name) && !is.null(protein_name)) {
@@ -165,9 +171,26 @@ plotIsotonic = function(fit,
     y_lab = expression(Log[2] ~ "Intensity")
   }
 
+  if (transform_x) {
+    x_lab = expression(Log[10] ~ "[drug (M)]")
+  } else {
+    x_lab = "x"
+  }
+
   # Prepare data
-  fit_df = data.frame(dose = log10(fit$x), y_pred = fit$y_pred)
-  orig_df = data.frame(x = log10(fit$x), y = fit$original_y)
+  #fit_df = data.frame(dose = log10(fit$x), y_pred = fit$y_pred)
+  #orig_df = data.frame(x = log10(fit$x), y = fit$original_y)
+
+  # Prepare data - fit$x is in the correct scale based on transform_x
+  fit_df = data.frame(dose = fit$x, y_pred = fit$y_pred)
+  orig_df = data.frame(x = fit$x, y = fit$original_y)
+  if (transform_x) {
+    fit_df = data.frame(dose = log10(fit$x), y_pred = fit$y_pred)
+    orig_df = data.frame(x = log10(fit$x), y = fit$original_y)
+  } else {
+    fit_df = data.frame(dose = fit$x, y_pred = fit$y_pred)
+    orig_df = data.frame(x = fit$x, y = fit$original_y)
+  }
 
   # Base plot
   model_fit_plot = ggplot2::ggplot() +
@@ -197,10 +220,19 @@ plotIsotonic = function(fit,
   # Optional IC50
   if (show_ic50) {
     if (ratio) {
-      target_response = 0.5
+      target_response = target_response
     } else {
-      dmso_idx = which(orig_df$x == -Inf)
-      target_response = mean(orig_df$y[dmso_idx], na.rm = TRUE) - 1
+      if (transform_x) {
+        #dmso_idx = which(orig_df$x == 0)  # log10(0+1) = 0
+        dmso_idx = which(is.infinite(orig_df$x) & orig_df$x < 0)
+        target_response = mean(orig_df$y[dmso_idx], na.rm = TRUE) + log2(target_response)
+
+      } else {
+        dmso_idx = which(fit$original_x == 0)  # Raw dose = 0
+        target_response = mean(orig_df$y[dmso_idx], na.rm = TRUE) + log2(target_response)
+        }
+      #dmso_idx = which(orig_df$x == -Inf)
+      #target_response = mean(orig_df$y[dmso_idx], na.rm = TRUE) - 1
     }
 
     ic50_pred = PredictIC50(fit, target_response = target_response)
@@ -220,29 +252,55 @@ plotIsotonic = function(fit,
     }
     #y_ic50 = stats::approx(fit$x, fit$y_pred, xout = ic50_pred)$y
 
-    ic50_pred_transform = -log10(ic50_pred) #pIC50
+
+    if (transform_x) {
+      # ic50_pred is on log10(dose+1) scale, convert to pIC50 for label
+      ic50_pred_transform = -log10(ic50_pred) #pIC50
+      ic50_label = paste("pIC50 =", round(ic50_pred_transform, 2))
+      x_pos = log10(ic50_pred)  # Already on correct scale for plotting
+    } else {
+      # ic50_pred is on raw scale, use as-is
+      ic50_label = paste("IC50 =", round(ic50_pred, 2))
+      x_pos = ic50_pred
+    }
+
+   # model_fit_plot = model_fit_plot +
+    #  ggplot2::geom_point(ggplot2::aes(x = log10(ic50_pred), y = y_ic50),
+    #                      shape = 23, size = 3.5, fill = "red", color = "black") +
+    #  ggplot2::annotate("text", x = log10(ic50_pred) + 0.35, y = y_ic50,
+     #                   label = paste("pIC50 =", round(ic50_pred_transform, 2)),
+     #                   vjust = -0.5, hjust = 0.5, size = 4, fontface = "bold")
 
     model_fit_plot = model_fit_plot +
-      ggplot2::geom_point(ggplot2::aes(x = log10(ic50_pred), y = y_ic50),
+      ggplot2::geom_point(ggplot2::aes(x = x_pos, y = y_ic50),
                           shape = 23, size = 3.5, fill = "red", color = "black") +
-      ggplot2::annotate("text", x = log10(ic50_pred) + 0.35, y = y_ic50,
-                        label = paste("pIC50 =", round(ic50_pred_transform, 2)),
+      ggplot2::annotate("text", x = x_pos + 0.35, y = y_ic50,
+                        label = ic50_label,
                         vjust = -0.5, hjust = 0.5, size = 4, fontface = "bold")
 
-    # Show IC50 confidence interval if provided
+    # optional display IC50 confidence interval
     if (show_ic50 && !is.null(ci)) {
-      ci_lower_M = 10^(-ci$ci_lower)
-      ci_upper_M = 10^(-ci$ci_upper)
+      if (transform_x) {
+        # CI bounds are in pIC50, convert to log10(dose+1) scale for plotting
+        ci_lower_dose = 10^(-ci$ci_lower)  # pIC50 to dose
+        ci_upper_dose = 10^(-ci$ci_upper)
+        ci_lower_x = log10(ci_lower_dose)  # dose to log10(dose+1)
+        ci_upper_x = log10(ci_upper_dose)
+      } else {
+        # CI bounds are already in raw scale
+        ci_lower_x = ci$ci_lower
+        ci_upper_x = ci$ci_upper
+      }
 
       model_fit_plot = model_fit_plot +
-        ggplot2::geom_segment(ggplot2::aes(x = log10(ci_lower_M), xend = log10(ci_lower_M),
+        ggplot2::geom_segment(ggplot2::aes(x = ci_lower_x, xend = ci_lower_x,
                                            y = 0, yend = target_response),
                               linetype = "dotted", color = "gray40", linewidth = 0.8) +
-        ggplot2::geom_segment(ggplot2::aes(x = log10(ci_upper_M), xend = log10(ci_upper_M),
+        ggplot2::geom_segment(ggplot2::aes(x = ci_upper_x, xend = ci_upper_x,
                                            y = 0, yend = target_response),
                               linetype = "dotted", color = "gray40", linewidth = 0.8) +
         ggplot2::annotate("rect",
-                          xmin = log10(ci_lower_M), xmax = log10(ci_upper_M),
+                          xmin = ci_lower_x, xmax = ci_upper_x,
                           ymin = 0, ymax = target_response,
                           alpha = 0.1, fill = "red")
     }
