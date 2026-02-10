@@ -134,7 +134,7 @@ futureExperimentSimulation = function(N_proteins = 300,
     }
 
     template = readRDS(template1_path)  # Use template1 as default
-    # Note: You could also merge template1 and template3 or choose based on parameters
+
   }
 
   # Run simulation
@@ -490,7 +490,7 @@ plotHitRateMSstatsResponse = function(results, rep_count, concentration_count) {
 
   # Use correct column for filtering
   filtered_dt = dt %>%
-    dplyr::filter(adjust_pval < 0.05)
+    dplyr::filter(adj.pvalue < 0.05)
 
   # Identify protein groups
   strong_proteins = dt %>%

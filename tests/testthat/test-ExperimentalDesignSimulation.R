@@ -224,7 +224,7 @@ test_that("plotHitRateMSstatsResponse calculates hit rates correctly", {
                 paste0("p_weak_interaction_", 1:10),
                 paste0("p_no_interaction_", 1:10)),
     drug = "Drug1",
-    adjust_pval = c(rep(0.01, 8), rep(0.1, 2),  # 80% strong detected
+    adj.pvalue = c(rep(0.01, 8), rep(0.1, 2),  # 80% strong detected
                     rep(0.01, 5), rep(0.1, 5),   # 50% weak detected
                     rep(0.01, 1), rep(0.1, 9))   # 10% false positive
   )
@@ -247,7 +247,7 @@ test_that("plotHitRateMSstatsResponse handles empty groups", {
     protein = c(paste0("p_strong_interaction_", 1:5),
                 paste0("p_no_interaction_", 1:5)),
     drug = "Drug1",
-    adjust_pval = c(rep(0.01, 3), rep(0.1, 2),
+    adj.pvalue = c(rep(0.01, 3), rep(0.1, 2),
                     rep(0.1, 5))
   )
 

@@ -12,7 +12,7 @@ utils::globalVariables(c(
   "Category", "Interaction", "Percent", "N_rep", "NumConcs", "TPR",
 
   # Variables from plotHitRateMSstatsResponse
-  "adjust_pval",
+  "adj.pvalue",
 
   # Add any other NSE variables used in your package
   "drug", "protein", "dose", "x", "y", "y_pred"

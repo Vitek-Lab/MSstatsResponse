@@ -38,7 +38,7 @@ test_that("doseResponseFit returns correct structure", {
   expect_true("drug" %in% names(results))
   expect_true("F_statistic" %in% names(results))
   expect_true("P_value" %in% names(results))
-  expect_true("adjust_pval" %in% names(results))
+  expect_true("adj.pvalue" %in% names(results))
 })
 
 test_that("doseResponseFit processes all proteins", {
