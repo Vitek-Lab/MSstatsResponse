@@ -17,7 +17,8 @@ plotIsotonic(
   ci = NULL,
   legend = FALSE,
   theme_style = "classic",
-  original_label = FALSE
+  original_label = FALSE,
+  transform_x = TRUE
 )
 }
 \arguments{
