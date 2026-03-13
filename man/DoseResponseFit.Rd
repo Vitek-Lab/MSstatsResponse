@@ -9,7 +9,8 @@ doseResponseFit(
   weights = NULL,
   increasing = FALSE,
   transform_dose = TRUE,
-  ratio_response = FALSE
+  ratio_response = FALSE,
+  precalculated_ratios = FALSE
 )
 }
 \arguments{
@@ -17,11 +18,17 @@ doseResponseFit(
 
 \item{weights}{Optional numeric vector of weights. Defaults to equal weights.}
 
-\item{increasing}{Logical. If TRUE, fits a non-decreasing model. If FALSE, fits non-increasing.}
+\item{increasing}{Logical or character. If TRUE, fits a non-decreasing model. If FALSE, fits non-increasing.
+If "both", fits both increasing and decreasing models and selects the one with better fit (lower SSE).
+Recommended for exploratory analysis, but ~2x slower. Default is FALSE.}
 
 \item{transform_dose}{Logical. If TRUE, applies log10(dose + 1) transformation. Default is TRUE.}
 
 \item{ratio_response}{Logical. If TRUE, converts log2 abundance to ratios relative to DMSO. Default is FALSE.}
+
+\item{precalculated_ratios}{Logical. If TRUE, assumes the response column contains pre-calculated ratios
+(not log2 values) and skips internal ratio calculation. This is useful for protein turnover data
+or other datasets where ratios are computed externally. Default is FALSE.}
 }
 \value{
 A data frame with protein-wise F-test results and BH-adjusted p-values.
@@ -62,15 +69,33 @@ interaction_results <- doseResponseFit(
   ratio_response = FALSE
 )
 
-# View results
-print(interaction_results)
+# Example 2: Fit both directions and select better
+interaction_both <- doseResponseFit(
+  data = example_data,
+  increasing = "both",
+  transform_dose = TRUE,
+  ratio_response = FALSE
+)
 
-# Check significant interactions
-significant <- interaction_results[interaction_results$adjust_pval < 0.05, ]
-print(paste("Found", nrow(significant), "significant interactions"))
+# Check which direction was selected for each protein
+table(interaction_both$direction)
+
+# Example 3: Using pre-calculated ratios (e.g., from protein turnover)
+# Assume you have pre-calculated ratio data
+turnover_data <- example_data
+turnover_data$response <- 2^turnover_data$response /
+                          mean(2^turnover_data$response[turnover_data$dose == 0])
+
+interaction_results_precalc <- doseResponseFit(
+  data = turnover_data,
+  increasing = FALSE,
+  transform_dose = TRUE,
+  ratio_response = FALSE,
+  precalculated_ratios = TRUE
+)
 
 \dontrun{
-# Example 2: Full dataset analysis
+# Example 4: Full dataset analysis
 full_results <- doseResponseFit(
   data = prepared_data,
   increasing = FALSE,

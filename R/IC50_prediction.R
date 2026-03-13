@@ -4,6 +4,7 @@
                            increasing,
                            transform_dose,
                            ratio_response,
+                           precalculated_ratios,
                            bootstrap,
                            prot,
                            drug_type,
@@ -22,6 +23,7 @@
       IC50 = NA,
       IC50_lower_bound = NA,
       IC50_upper_bound = NA,
+      direction = NA,
       stringsAsFactors = FALSE
     ))
   }
@@ -35,6 +37,7 @@
       IC50 = NA,
       IC50_lower_bound = NA,
       IC50_upper_bound = NA,
+      direction = NA,
       stringsAsFactors = FALSE
     ))
   }
@@ -43,8 +46,13 @@
   x = x[order_idx]
   y = y[order_idx]
 
-  y_unlog = 2^y
-  baseline = mean(y_unlog[x == 0], na.rm = TRUE)
+  # Calculate baseline for validation
+  if (precalculated_ratios) {
+    baseline = mean(y[x == 0], na.rm = TRUE)
+  } else {
+    y_unlog = 2^y
+    baseline = mean(y_unlog[x == 0], na.rm = TRUE)
+  }
 
   # Check if baseline is valid
   if (is.na(baseline) || !is.finite(baseline)) {
@@ -55,14 +63,15 @@
       IC50 = NA,
       IC50_lower_bound = NA,
       IC50_upper_bound = NA,
+      direction = NA,
       stringsAsFactors = FALSE
     ))
   }
 
-
-  y_ratio = y_unlog / baseline
-
-  if (!ratio_response){
+  # Adjust target response based on data type
+  if (precalculated_ratios) {
+    adjusted_target_response = target_response
+  } else if (!ratio_response) {
     dmso_mean = mean(y[x == 0], na.rm = TRUE)
     adjusted_target_response = dmso_mean + log2(target_response)
   } else {
@@ -71,17 +80,70 @@
 
   result = NULL
   ic50_est = NA
+  chosen_direction = NA
 
   tryCatch({
-    fit_try = fitIsotonicRegression(x, y,
-                                    increasing = increasing,
-                                    transform_x = transform_dose,
-                                    ratio_y = ratio_response,
-                                    test_significance = FALSE)
-    ic50_est = PredictIC50(fit_try, target_response = adjusted_target_response)
+    # Handle "both" option
+    if (is.character(increasing) && increasing == "both") {
+      # Fit both directions
+      fit_dec = fitIsotonicRegression(x, y,
+                                      increasing = FALSE,
+                                      transform_x = transform_dose,
+                                      ratio_y = ratio_response,
+                                      precalculated_ratios = precalculated_ratios,
+                                      test_significance = FALSE)
+
+      fit_inc = fitIsotonicRegression(x, y,
+                                      increasing = TRUE,
+                                      transform_x = transform_dose,
+                                      ratio_y = ratio_response,
+                                      precalculated_ratios = precalculated_ratios,
+                                      test_significance = FALSE)
+
+      # Try to predict IC50 for both
+      ic50_dec = PredictIC50(fit_dec, target_response = adjusted_target_response)
+      ic50_inc = PredictIC50(fit_inc, target_response = adjusted_target_response)
+
+      # Select the one that successfully predicts IC50
+      if (!is.na(ic50_dec) && is.na(ic50_inc)) {
+        ic50_est = ic50_dec
+        chosen_direction = "decreasing"
+        fit_try = fit_dec
+        increasing_final = FALSE
+      } else if (is.na(ic50_dec) && !is.na(ic50_inc)) {
+        ic50_est = ic50_inc
+        chosen_direction = "increasing"
+        fit_try = fit_inc
+        increasing_final = TRUE
+      } else if (!is.na(ic50_dec) && !is.na(ic50_inc)) {
+        # Both work - choose based on better fit (could use SSE if stored)
+        # Default to decreasing for now
+        ic50_est = ic50_dec
+        chosen_direction = "decreasing"
+        fit_try = fit_dec
+        increasing_final = FALSE
+      } else {
+        ic50_est = NA
+        chosen_direction = NA
+        increasing_final = FALSE
+      }
+    } else {
+      # Original single-direction behavior
+      fit_try = fitIsotonicRegression(x, y,
+                                      increasing = increasing,
+                                      transform_x = transform_dose,
+                                      ratio_y = ratio_response,
+                                      precalculated_ratios = precalculated_ratios,
+                                      test_significance = FALSE)
+      ic50_est = PredictIC50(fit_try, target_response = adjusted_target_response)
+      chosen_direction = if(is.logical(increasing) && increasing) "increasing" else "decreasing"
+      increasing_final = increasing
+    }
+
     ic50_est = ifelse(is.na(ic50_est), NA, ic50_est)
   }, error = function(e) {
     ic50_est <- NA
+    chosen_direction <- NA
   })
 
   if (is.na(ic50_est)) {
@@ -90,21 +152,30 @@
       drug = drug_type,
       IC50 = NA,
       IC50_lower_bound = NA,
-      IC50_upper_bound = NA
+      IC50_upper_bound = NA,
+      direction = chosen_direction
     )
   } else {
-        if (transform_dose) {
+    if (transform_dose) {
       ic50 = -log10(ic50_est)
     } else {
       ic50 = ic50_est
     }
 
     if (bootstrap) {
-      if(ratio_response){
+      if (precalculated_ratios) {
+        bootstrap_res = bootstrapIC50Precalculated(
+          dose = x, response = y,
+          n_samples = n_samples, alpha = alpha,
+          increasing = increasing_final,
+          target_response = adjusted_target_response,
+          transform_x = transform_dose
+        )
+      } else if (ratio_response) {
         bootstrap_res = bootstrapIC50(
           dose = x, response = y,
           n_samples = n_samples, alpha = alpha,
-          increasing = increasing,
+          increasing = increasing_final,
           target_response = target_response,
           transform_x = transform_dose
         )
@@ -112,7 +183,7 @@
         bootstrap_res = bootstrapIC50LogScale(
           x = x, y = y,
           n_samples = n_samples, alpha = alpha,
-          increasing = increasing,
+          increasing = increasing_final,
           target_response = target_response,
           transform_x = transform_dose
         )
@@ -128,7 +199,8 @@
       drug = drug_type,
       IC50 = ic50,
       IC50_lower_bound = lower,
-      IC50_upper_bound = upper
+      IC50_upper_bound = upper,
+      direction = chosen_direction
     )
   }
 
@@ -246,7 +318,6 @@ bootstrapIC50 = function(dose, response, n_samples = 1000, alpha = 0.10,
 #' @param alpha Significance level for confidence interval (default = 0.05).
 #' @param increasing Logical. Fit non-decreasing if TRUE.
 #' @param target_response Numeric value for response level (default = 0.5).
-#'
 #' @param transform_x Logical. If TRUE, applies log10(x + 1) transformation. Default = TRUE.
 #' @return List with mean IC50, CI bounds, and transformed estimates.
 #' @importFrom stats quantile
@@ -282,6 +353,74 @@ bootstrapIC50LogScale = function(x, y, n_samples = 1000, alpha = 0.05,
                                          ratio_y = FALSE,
                                          test_significance = FALSE)
       ic50_est = PredictIC50(fit_sample, target_response = adjusted_target_response)
+      ic50_vals[i] = ifelse(is.na(ic50_est), NA, ic50_est)
+    }, error = function(e) {
+      ic50_vals[i] = NA
+    })
+  }
+
+  ic50_values_clean = ic50_vals[!is.na(ic50_vals) & ic50_vals != 0]
+  ci_lower = stats::quantile(ic50_values_clean, alpha / 2, na.rm = TRUE)
+  ci_upper = stats::quantile(ic50_values_clean, 1 - alpha / 2, na.rm = TRUE)
+  mean_ic50 = mean(ic50_values_clean, na.rm = TRUE)
+
+  if (transform_x) {
+    mean_ic50_transform = -log10(mean_ic50)
+    ci_lower_transform = -log10(ci_lower)
+    ci_upper_transform = -log10(ci_upper)
+  } else {
+    mean_ic50_transform = mean_ic50
+    ci_lower_transform = ci_lower
+    ci_upper_transform = ci_upper
+  }
+
+  return(list(
+    ic50_values = ic50_vals,
+    mean_ic50 = mean_ic50,
+    ci_lower = ci_lower,
+    ci_upper = ci_upper,
+    mean_ic50_transform = mean_ic50_transform,
+    ci_lower_transform = ci_lower_transform,
+    ci_upper_transform = ci_upper_transform
+  ))
+}
+
+#' Bootstrap IC50 with pre-calculated ratios
+#'
+#' @param dose Numeric vector of dose values.
+#' @param response Numeric vector of response values (pre-calculated ratios).
+#' @param n_samples Number of bootstrap samples. Default = 1000.
+#' @param alpha Significance level for confidence interval. Default = 0.10.
+#' @param increasing Logical. Fit non-decreasing if TRUE.
+#' @param target_response Numeric value for response level.
+#' @param transform_x Logical. If TRUE, applies log10(x + 1) transformation. Default = TRUE.
+#'
+#' @return List with mean IC50, CI bounds, and transformed estimates.
+#' @importFrom stats quantile
+#' @importFrom dplyr filter select mutate group_by summarise arrange distinct
+bootstrapIC50Precalculated = function(dose, response, n_samples = 1000, alpha = 0.10,
+                                      increasing = FALSE, target_response = 0.5,
+                                      transform_x = TRUE) {
+  ic50_vals = numeric(n_samples)
+  df = data.frame(dose = dose, response = response)
+
+  for (i in seq_len(n_samples)) {
+    boot_df = df %>%
+      dplyr::group_by(dose) %>%
+      dplyr::sample_frac(size = 1, replace = TRUE) %>%
+      dplyr::ungroup()
+
+    x_sample = boot_df$dose
+    y_sample = boot_df$response
+
+    tryCatch({
+      fit_sample = fitIsotonicRegression(x_sample, y_sample,
+                                         increasing = increasing,
+                                         transform_x = transform_x,
+                                         ratio_y = FALSE,
+                                         precalculated_ratios = TRUE,
+                                         test_significance = FALSE)
+      ic50_est = PredictIC50(fit_sample, target_response = target_response)
       ic50_vals[i] = ifelse(is.na(ic50_est), NA, ic50_est)
     }, error = function(e) {
       ic50_vals[i] = NA

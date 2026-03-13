@@ -9,6 +9,7 @@ visualizeResponseProtein(
   protein_name,
   drug_name,
   ratio_response = TRUE,
+  precalculated_ratios = FALSE,
   transform_dose = TRUE,
   show_ic50 = TRUE,
   target_response = 0.5,
@@ -16,7 +17,10 @@ visualizeResponseProtein(
   n_samples = 1000,
   alpha = 0.1,
   increasing = FALSE,
-  y_lab = "Ratio Response"
+  color_by = NULL,
+  x_lab = NULL,
+  y_lab = NULL,
+  title = NULL
 )
 }
 \arguments{
@@ -28,19 +32,30 @@ visualizeResponseProtein(
 
 \item{ratio_response}{Logical. If TRUE, compute IC50 on ratio scale; if FALSE, use log2 intensities.}
 
+\item{precalculated_ratios}{Logical. If TRUE, assumes response contains pre-calculated ratios. Default is FALSE.}
+
 \item{transform_dose}{Logical. If TRUE, applies log10(dose + 1). Default is TRUE.}
 
 \item{show_ic50}{Logical. If TRUE, adds vertical line and annotation for IC50.}
+
+\item{target_response}{Numeric. Target response level for IC50/EC50 calculation. Default = 0.5.}
 
 \item{add_ci}{Logical. Include IC50 95\% confidence interval bands if TRUE. Default is FALSE.}
 
 \item{n_samples}{Number of bootstrap samples if including confidence intervals. Default is 1000.}
 
-\item{alpha}{Alpha level for confidence intervals. Default is 0.05.}
+\item{alpha}{Alpha level for confidence intervals. Default is 0.10.}
 
-\item{increasing}{Logical. If TRUE, fits a non-decreasing model. If FALSE, fits non-increasing.}
+\item{increasing}{Logical or character. If TRUE, fits a non-decreasing model. If FALSE, fits non-increasing.
+If "both", fits both and selects better fit.}
 
-\item{y_lab}{Character. Label for the y-axis. Default is "Ratio Response".}
+\item{color_by}{Character. Column name to color points by (e.g., "replicate", "peptide"). Default is NULL.}
+
+\item{x_lab}{Character. Custom label for the x-axis. If NULL, uses default based on transform_dose.}
+
+\item{y_lab}{Character. Custom label for the y-axis. If NULL, uses default based on ratio_response.}
+
+\item{title}{Character. Custom plot title. If NULL, auto-generates from drug and protein names.}
 }
 \value{
 A ggplot object.
@@ -79,15 +94,28 @@ plot1 <- visualizeResponseProtein(
 )
 print(plot1)
 
-# Example 2: Add IC50 annotation
+# Example 2: Add IC50 annotation with custom labels
 plot2 <- visualizeResponseProtein(
   data = prepared_data,
   protein_name = "PROTEIN_A",
   drug_name = "Drug1",
   ratio_response = TRUE,
   show_ic50 = TRUE,
-  add_ci = FALSE
+  x_lab = "Drug Concentration (M)",
+  y_lab = "Relative Protein Abundance",
+  title = "Drug Response for PROTEIN_A"
 )
 print(plot2)
+
+# Example 3: Color points by replicate
+plot3 <- visualizeResponseProtein(
+  data = prepared_data,
+  protein_name = "PROTEIN_A",
+  drug_name = "Drug1",
+  ratio_response = TRUE,
+  show_ic50 = TRUE,
+  color_by = "replicate"
+)
+print(plot3)
 
 }

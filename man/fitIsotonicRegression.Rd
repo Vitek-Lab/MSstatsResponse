@@ -11,6 +11,7 @@ fitIsotonicRegression(
   increasing = FALSE,
   transform_x = TRUE,
   ratio_y = FALSE,
+  precalculated_ratios = FALSE,
   test_significance = FALSE
 )
 }
@@ -26,6 +27,9 @@ fitIsotonicRegression(
 \item{transform_x}{Logical. If TRUE, applies log10(x + 1) transformation. Default is TRUE.}
 
 \item{ratio_y}{Logical. If TRUE, converts log2 abundance to ratios relative to DMSO. Default is FALSE.}
+
+\item{precalculated_ratios}{Logical. If TRUE, assumes y contains pre-calculated ratios and skips
+internal ratio calculation. Default is FALSE.}
 
 \item{test_significance}{Logical. If TRUE, performs F-test to assess significance.}
 }

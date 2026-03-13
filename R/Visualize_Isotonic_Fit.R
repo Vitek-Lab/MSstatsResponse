@@ -3,14 +3,20 @@
 #' @param data Protein-level dataset (e.g., output of MSstatsPrepareDoseResponseFit).
 #' @param protein_name Character. Protein name to plot.
 #' @param drug_name Character. Drug name to plot.
-#' @param increasing Logical. If TRUE, fits a non-decreasing model. If FALSE, fits non-increasing.
+#' @param increasing Logical or character. If TRUE, fits a non-decreasing model. If FALSE, fits non-increasing.
+#'   If "both", fits both and selects better fit.
 #' @param ratio_response Logical. If TRUE, compute IC50 on ratio scale; if FALSE, use log2 intensities.
+#' @param precalculated_ratios Logical. If TRUE, assumes response contains pre-calculated ratios. Default is FALSE.
 #' @param transform_dose Logical. If TRUE, applies log10(dose + 1). Default is TRUE.
 #' @param show_ic50 Logical. If TRUE, adds vertical line and annotation for IC50.
+#' @param target_response Numeric. Target response level for IC50/EC50 calculation. Default = 0.5.
 #' @param add_ci Logical. Include IC50 95% confidence interval bands if TRUE. Default is FALSE.
 #' @param n_samples Number of bootstrap samples if including confidence intervals. Default is 1000.
-#' @param alpha Alpha level for confidence intervals. Default is 0.05.
-#' @param y_lab Character. Label for the y-axis. Default is "Ratio Response".
+#' @param alpha Alpha level for confidence intervals. Default is 0.10.
+#' @param color_by Character. Column name to color points by (e.g., "replicate", "peptide"). Default is NULL.
+#' @param x_lab Character. Custom label for the x-axis. If NULL, uses default based on transform_dose.
+#' @param y_lab Character. Custom label for the y-axis. If NULL, uses default based on ratio_response.
+#' @param title Character. Custom plot title. If NULL, auto-generates from drug and protein names.
 #'
 #' @return A ggplot object.
 #'
@@ -45,22 +51,36 @@
 #' )
 #' print(plot1)
 #'
-#' # Example 2: Add IC50 annotation
+#' # Example 2: Add IC50 annotation with custom labels
 #' plot2 <- visualizeResponseProtein(
 #'   data = prepared_data,
 #'   protein_name = "PROTEIN_A",
 #'   drug_name = "Drug1",
 #'   ratio_response = TRUE,
 #'   show_ic50 = TRUE,
-#'   add_ci = FALSE
+#'   x_lab = "Drug Concentration (M)",
+#'   y_lab = "Relative Protein Abundance",
+#'   title = "Drug Response for PROTEIN_A"
 #' )
 #' print(plot2)
+#'
+#' # Example 3: Color points by replicate
+#' plot3 <- visualizeResponseProtein(
+#'   data = prepared_data,
+#'   protein_name = "PROTEIN_A",
+#'   drug_name = "Drug1",
+#'   ratio_response = TRUE,
+#'   show_ic50 = TRUE,
+#'   color_by = "replicate"
+#' )
+#' print(plot3)
 #'
 #' @export
 visualizeResponseProtein = function(data,
                                     protein_name,
                                     drug_name,
                                     ratio_response = TRUE,
+                                    precalculated_ratios = FALSE,
                                     transform_dose = TRUE,
                                     show_ic50 = TRUE,
                                     target_response = 0.5,
@@ -68,7 +88,10 @@ visualizeResponseProtein = function(data,
                                     n_samples = 1000,
                                     alpha = 0.10,
                                     increasing = FALSE,
-                                    y_lab = 'Ratio Response') {
+                                    color_by = NULL,
+                                    x_lab = NULL,
+                                    y_lab = NULL,
+                                    title = NULL) {
   # Subset to single protein + drug (+ DMSO)
   data_single = data %>%
     dplyr::filter(protein == protein_name & drug %in% c("DMSO", drug_name))
@@ -80,26 +103,59 @@ visualizeResponseProtein = function(data,
   x = x_org[order_idx]
   y = y_org[order_idx]
 
-  # Fit isotonic model using renamed function
-  fit = fitIsotonicRegression(
-    x = x, y = y,
-    increasing = increasing,
-    transform_x = transform_dose,
-    ratio_y = ratio_response,
-    test_significance = FALSE
-  )
+  # Handle "both" option by fitting and selecting better model
+  if (is.character(increasing) && increasing == "both") {
+    fit_dec = fitIsotonicRegression(
+      x = x, y = y,
+      increasing = FALSE,
+      transform_x = transform_dose,
+      ratio_y = ratio_response,
+      precalculated_ratios = precalculated_ratios,
+      test_significance = TRUE
+    )
+
+    fit_inc = fitIsotonicRegression(
+      x = x, y = y,
+      increasing = TRUE,
+      transform_x = transform_dose,
+      ratio_y = ratio_response,
+      precalculated_ratios = precalculated_ratios,
+      test_significance = TRUE
+    )
+
+    # Select better fit
+    if (fit_dec$f_test$SSE_Full <= fit_inc$f_test$SSE_Full) {
+      fit = fit_dec
+      increasing_final = FALSE
+    } else {
+      fit = fit_inc
+      increasing_final = TRUE
+    }
+  } else {
+    # Fit isotonic model
+    fit = fitIsotonicRegression(
+      x = x, y = y,
+      increasing = increasing,
+      transform_x = transform_dose,
+      ratio_y = ratio_response,
+      precalculated_ratios = precalculated_ratios,
+      test_significance = FALSE
+    )
+    increasing_final = increasing
+  }
 
   # Optional: bootstrap CIs
   ci_bounds = NULL
   if (add_ci) {
     suppressWarnings({
-    ic50_est = predictIC50(data_single,
-                           ratio_response = ratio_response,
-                           transform_dose = transform_dose,
-                           increasing = increasing,
-                           target_response = target_response,
-                           n_samples = n_samples,
-                           alpha = alpha)
+      ic50_est = predictIC50(data_single,
+                             ratio_response = ratio_response,
+                             precalculated_ratios = precalculated_ratios,
+                             transform_dose = transform_dose,
+                             increasing = increasing_final,
+                             target_response = target_response,
+                             n_samples = n_samples,
+                             alpha = alpha)
     })
     ci_bounds = list(
       ci_lower = ic50_est$IC50_lower_bound,
@@ -110,13 +166,18 @@ visualizeResponseProtein = function(data,
   p = plotIsotonic(
     fit = fit,
     ratio = ratio_response,
+    precalculated_ratios = precalculated_ratios,
     show_ic50 = show_ic50,
     target_response = target_response,
     ci = ci_bounds,
     drug_name = drug_name,
     protein_name = protein_name,
+    x_lab = x_lab,
     y_lab = y_lab,
-    transform_x = transform_dose
+    title = title,
+    transform_x = transform_dose,
+    color_by = color_by,
+    original_data = data_single
   )
 
   return(p)
@@ -125,17 +186,22 @@ visualizeResponseProtein = function(data,
 #' Plot Isotonic Regression Model
 #'
 #' @param fit A model object returned by fitIsotonicRegression().
-#' @param ratio Logical. If TRUE, shows plot on the ratio scale relative to DMSO (i.e. 0-1 scale). Default is FALSE.
+#' @param ratio Logical. If TRUE, shows plot on the ratio scale relative to DMSO. Default is FALSE.
+#' @param precalculated_ratios Logical. If TRUE, response values are pre-calculated ratios. Default is FALSE.
 #' @param show_ic50 Logical. If TRUE, adds vertical line and annotation for IC50.
+#' @param target_response Numeric. Target response level for IC50/EC50. Default = 0.5.
 #' @param drug_name Drug name for plotting data.
 #' @param protein_name Protein name for plot.
-#' @param x_lab Label for x-axis.
-#' @param y_lab Label for y-axis.
-#' @param title Title for the plot.
-#' @param ci Logical. Include IC50 95% confidence interval bands if TRUE. Default is FALSE.
+#' @param x_lab Character. Label for x-axis. If NULL, uses default based on transform_x.
+#' @param y_lab Character. Label for y-axis. If NULL, uses default based on ratio/precalculated_ratios.
+#' @param title Character. Title for the plot. If NULL, auto-generates.
+#' @param ci List with ci_lower and ci_upper. Include IC50 confidence interval bands if provided. Default is NULL.
 #' @param legend Logical. Show legend if TRUE.
 #' @param theme_style ggplot2 theme name to apply (default = "classic").
 #' @param original_label Logical. If TRUE, replace x-axis tick labels with original dose labels.
+#' @param transform_x Logical. Whether doses were log-transformed. Default = TRUE.
+#' @param color_by Character. Column name to color points by. Default is NULL.
+#' @param original_data Data frame containing original data with grouping variables.
 #'
 #' @return A ggplot object.
 #'
@@ -145,45 +211,49 @@ visualizeResponseProtein = function(data,
 #' @importFrom ggplot2 theme element_rect element_blank element_text
 plotIsotonic = function(fit,
                         ratio = TRUE,
+                        precalculated_ratios = FALSE,
                         show_ic50 = FALSE,
-                        target_response = target_response,
+                        target_response = 0.5,
                         drug_name = NULL,
                         protein_name = NULL,
-                        x_lab = expression(Log[10] ~ "[drug (M)]"),
-                        y_lab = "Log2 Intensity",
+                        x_lab = NULL,
+                        y_lab = NULL,
                         title = NULL,
                         ci = NULL,
                         legend = FALSE,
                         theme_style = "classic",
                         original_label = FALSE,
-                        transform_x = TRUE) {
+                        transform_x = TRUE,
+                        color_by = NULL,
+                        original_data = NULL) {
 
   # Construct title if not provided
-  if (is.null(title) && !is.null(drug_name) && !is.null(protein_name)) {
-    title = paste0(drug_name, ": ", protein_name, " Response")
-  } else if (is.null(title)) {
-    title = "Isotonic Regression Fit"
+  if (is.null(title)) {
+    if (!is.null(drug_name) && !is.null(protein_name)) {
+      title = paste0(drug_name, ": ", protein_name, " Response")
+    } else {
+      title = "Isotonic Regression Fit"
+    }
   }
 
-  if (ratio) {
-    y_lab = "Ratio relative to DMSO"
-  } else {
-    y_lab = expression(Log[2] ~ "Intensity")
+  # Set default labels if not provided
+  if (is.null(y_lab)) {
+    if (precalculated_ratios || ratio) {
+      y_lab = "Ratio relative to DMSO"
+    } else {
+      y_lab = expression(Log[2] ~ "Intensity")
+    }
   }
 
-  if (transform_x) {
-    x_lab = expression(Log[10] ~ "[drug (M)]")
-  } else {
-    x_lab = "x"
+  if (is.null(x_lab)) {
+    if (transform_x) {
+      x_lab = expression(Log[10] ~ "[drug (M)]")
+    } else {
+      x_lab = "Dose"
+    }
   }
 
   # Prepare data
-  #fit_df = data.frame(dose = log10(fit$x), y_pred = fit$y_pred)
-  #orig_df = data.frame(x = log10(fit$x), y = fit$original_y)
-
-  # Prepare data - fit$x is in the correct scale based on transform_x
-  fit_df = data.frame(dose = fit$x, y_pred = fit$y_pred)
-  orig_df = data.frame(x = fit$x, y = fit$original_y)
   if (transform_x) {
     fit_df = data.frame(dose = log10(fit$x), y_pred = fit$y_pred)
     orig_df = data.frame(x = log10(fit$x), y = fit$original_y)
@@ -192,16 +262,43 @@ plotIsotonic = function(fit,
     orig_df = data.frame(x = fit$x, y = fit$original_y)
   }
 
-  # Base plot
-  model_fit_plot = ggplot2::ggplot() +
-    ggplot2::geom_point(data = orig_df,
-                        ggplot2::aes(x = x, y = y, color = "Observed Data"), size = 2) +
-    ggplot2::geom_line(data = fit_df,
-                       ggplot2::aes(x = dose, y = y_pred, color = "Isotonic Regression Fit"), size = 1.2) +
-    ggplot2::scale_color_manual(name = NULL,
-                                values = c("Observed Data" = "black",
-                                           "Isotonic Regression Fit" = "orange")) +
-    ggplot2::labs(x = x_lab, y = y_lab, title = title) +
+  # Add color grouping variable if requested
+  if (!is.null(color_by) && !is.null(original_data)) {
+    if (!color_by %in% names(original_data)) {
+      stop(paste("Column", color_by, "not found in data"))
+    }
+    order_idx = order(original_data$dose)
+    orig_df[[color_by]] = original_data[[color_by]][order_idx]
+  }
+
+  # Base plot with conditional coloring
+  if (!is.null(color_by) && !is.null(original_data)) {
+    # Color points by grouping variable
+    model_fit_plot = ggplot2::ggplot() +
+      ggplot2::geom_point(data = orig_df,
+                          ggplot2::aes(x = x, y = y, color = .data[[color_by]]),
+                          size = 2) +
+      ggplot2::geom_line(data = fit_df,
+                         ggplot2::aes(x = dose, y = y_pred),
+                         color = "orange", size = 1.2) +
+      ggplot2::labs(x = x_lab, y = y_lab, title = title, color = color_by)
+  } else {
+    # Default: black points, orange line
+    model_fit_plot = ggplot2::ggplot() +
+      ggplot2::geom_point(data = orig_df,
+                          ggplot2::aes(x = x, y = y, color = "Observed Data"),
+                          size = 2) +
+      ggplot2::geom_line(data = fit_df,
+                         ggplot2::aes(x = dose, y = y_pred, color = "Isotonic Regression Fit"),
+                         size = 1.2) +
+      ggplot2::scale_color_manual(name = NULL,
+                                  values = c("Observed Data" = "black",
+                                             "Isotonic Regression Fit" = "orange")) +
+      ggplot2::labs(x = x_lab, y = y_lab, title = title)
+  }
+
+  # Apply common theme
+  model_fit_plot = model_fit_plot +
     ggplot2::ylim(0, NA) +
     ggplot2::theme_minimal() +
     ggplot2::theme(
@@ -212,34 +309,29 @@ plotIsotonic = function(fit,
       plot.title = ggplot2::element_text(hjust = 0.5, face = "bold", size = 16)
     )
 
-  if (!legend) {
+  # Handle legend display
+  if (!legend && is.null(color_by)) {
     model_fit_plot = model_fit_plot +
       ggplot2::theme(legend.position = "none")
   }
 
   # Optional IC50
   if (show_ic50) {
-    if (ratio) {
-      target_response = target_response
+    if (precalculated_ratios || ratio) {
+      adjusted_target = target_response
     } else {
       if (transform_x) {
-        #dmso_idx = which(orig_df$x == 0)  # log10(0+1) = 0
         dmso_idx = which(is.infinite(orig_df$x) & orig_df$x < 0)
-        target_response = mean(orig_df$y[dmso_idx], na.rm = TRUE) + log2(target_response)
-
       } else {
-        dmso_idx = which(fit$original_x == 0)  # Raw dose = 0
-        target_response = mean(orig_df$y[dmso_idx], na.rm = TRUE) + log2(target_response)
-        }
-      #dmso_idx = which(orig_df$x == -Inf)
-      #target_response = mean(orig_df$y[dmso_idx], na.rm = TRUE) - 1
+        dmso_idx = which(fit$original_x == 0)
+      }
+      adjusted_target = mean(orig_df$y[dmso_idx], na.rm = TRUE) + log2(target_response)
     }
 
-    ic50_pred = PredictIC50(fit, target_response = target_response)
+    ic50_pred = PredictIC50(fit, target_response = adjusted_target)
 
-    # fix approx warning for handling duplicate x values
+    # Handle duplicate x values for approx
     if (length(unique(fit$x)) < length(fit$x)) {
-      # Aggregate y values for duplicate x values before interpolation
       x_unique = unique(fit$x)
       y_aggregated = sapply(x_unique, function(xi) {
         mean(fit$y_pred[fit$x == xi])
@@ -250,26 +342,15 @@ plotIsotonic = function(fit,
         y_ic50 = stats::approx(fit$x, fit$y_pred, xout = ic50_pred)$y
       })
     }
-    #y_ic50 = stats::approx(fit$x, fit$y_pred, xout = ic50_pred)$y
-
 
     if (transform_x) {
-      # ic50_pred is on log10(dose+1) scale, convert to pIC50 for label
-      ic50_pred_transform = -log10(ic50_pred) #pIC50
+      ic50_pred_transform = -log10(ic50_pred)
       ic50_label = paste("pIC50 =", round(ic50_pred_transform, 2))
-      x_pos = log10(ic50_pred)  # Already on correct scale for plotting
+      x_pos = log10(ic50_pred)
     } else {
-      # ic50_pred is on raw scale, use as-is
       ic50_label = paste("IC50 =", round(ic50_pred, 2))
       x_pos = ic50_pred
     }
-
-   # model_fit_plot = model_fit_plot +
-    #  ggplot2::geom_point(ggplot2::aes(x = log10(ic50_pred), y = y_ic50),
-    #                      shape = 23, size = 3.5, fill = "red", color = "black") +
-    #  ggplot2::annotate("text", x = log10(ic50_pred) + 0.35, y = y_ic50,
-     #                   label = paste("pIC50 =", round(ic50_pred_transform, 2)),
-     #                   vjust = -0.5, hjust = 0.5, size = 4, fontface = "bold")
 
     model_fit_plot = model_fit_plot +
       ggplot2::geom_point(ggplot2::aes(x = x_pos, y = y_ic50),
@@ -278,30 +359,28 @@ plotIsotonic = function(fit,
                         label = ic50_label,
                         vjust = -0.5, hjust = 0.5, size = 4, fontface = "bold")
 
-    # optional display IC50 confidence interval
-    if (show_ic50 && !is.null(ci)) {
+    # Optional display IC50 confidence interval
+    if (show_ic50 && !is.null(ci) && !is.na(ci$ci_lower) && !is.na(ci$ci_upper)) {
       if (transform_x) {
-        # CI bounds are in pIC50, convert to log10(dose+1) scale for plotting
-        ci_lower_dose = 10^(-ci$ci_lower)  # pIC50 to dose
+        ci_lower_dose = 10^(-ci$ci_lower)
         ci_upper_dose = 10^(-ci$ci_upper)
-        ci_lower_x = log10(ci_lower_dose)  # dose to log10(dose+1)
+        ci_lower_x = log10(ci_lower_dose)
         ci_upper_x = log10(ci_upper_dose)
       } else {
-        # CI bounds are already in raw scale
         ci_lower_x = ci$ci_lower
         ci_upper_x = ci$ci_upper
       }
 
       model_fit_plot = model_fit_plot +
         ggplot2::geom_segment(ggplot2::aes(x = ci_lower_x, xend = ci_lower_x,
-                                           y = 0, yend = target_response),
+                                           y = 0, yend = adjusted_target),
                               linetype = "dotted", color = "gray40", linewidth = 0.8) +
         ggplot2::geom_segment(ggplot2::aes(x = ci_upper_x, xend = ci_upper_x,
-                                           y = 0, yend = target_response),
+                                           y = 0, yend = adjusted_target),
                               linetype = "dotted", color = "gray40", linewidth = 0.8) +
         ggplot2::annotate("rect",
                           xmin = ci_lower_x, xmax = ci_upper_x,
-                          ymin = 0, ymax = target_response,
+                          ymin = 0, ymax = adjusted_target,
                           alpha = 0.1, fill = "red")
     }
   }
