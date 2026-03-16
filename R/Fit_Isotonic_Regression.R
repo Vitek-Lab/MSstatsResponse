@@ -104,7 +104,7 @@ doseResponseFit = function(data, weights = NULL,
       SSE_Null = numeric(),
       F_statistic = numeric(),
       P_value = numeric(),
-      adjust_pval = numeric(),
+      adj.pvalue = numeric(),
       direction = character(),
       stringsAsFactors = FALSE
     ))
@@ -213,15 +213,15 @@ doseResponseFit = function(data, weights = NULL,
         inc_idx = which(results_df$direction == "increasing")
         dec_idx = which(results_df$direction == "decreasing")
 
-        # Initialize adjust_pval column
-        results_df$adjust_pval = NA
+        # Initialize adj.pvalue column
+        results_df$adj.pvalue = NA
 
         # FDR correction within each direction
         if (length(inc_idx) > 0) {
-          results_df$adjust_pval[inc_idx] = p.adjust(results_df$P_value[inc_idx], method = "BH")
+          results_df$adj.pvalue[inc_idx] = p.adjust(results_df$P_value[inc_idx], method = "BH")
         }
         if (length(dec_idx) > 0) {
-          results_df$adjust_pval[dec_idx] = p.adjust(results_df$P_value[dec_idx], method = "BH")
+          results_df$adj.pvalue[dec_idx] = p.adjust(results_df$P_value[dec_idx], method = "BH")
         }
 
         # Now select the better direction for each protein
@@ -256,7 +256,7 @@ doseResponseFit = function(data, weights = NULL,
 
       } else {
         # Standard FDR correction when direction is fixed
-        results_df$adjust_pval = p.adjust(results_df$P_value, method = "BH")
+        results_df$adj.pvalue = p.adjust(results_df$P_value, method = "BH")
       }
 
       # Reorder columns to put direction after drug
@@ -275,7 +275,7 @@ doseResponseFit = function(data, weights = NULL,
       SSE_Null = numeric(),
       F_statistic = numeric(),
       P_value = numeric(),
-      adjust_pval = numeric(),
+      adj.pvalue = numeric(),
       direction = character(),
       stringsAsFactors = FALSE
     ))
