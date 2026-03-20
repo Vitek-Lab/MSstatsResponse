@@ -24,6 +24,12 @@ CONC_MAP <- list(
 #' @importFrom dplyr filter mutate select if_else
 #' @export
 run_tpr_simulation <- function(rep_range, n_proteins = 1000) {
+  if (!is.numeric(rep_range) || length(rep_range) != 2 || rep_range[1] > rep_range[2]) {
+    stop("rep_range must be a numeric vector of length 2 with c(min, max) where min <= max.")
+  }
+  if (rep_range[2] > 5) {
+    stop("Maximum replicates is 5 (limited by available line styles for plotting).")
+  }
   k_grid <- as.integer(names(CONC_MAP))
   rep_grid <- seq(rep_range[1], rep_range[2])
 
@@ -89,6 +95,9 @@ plot_tpr_power_curve <- function(simulation_results) {
   rep_levels <- sort(unique(simulation_results$N_rep))
 
   ltypes <- c("dotted", "dotdash", "dashed", "longdash", "solid")
+  if (length(rep_levels) > length(ltypes)) {
+    stop("Too many replicate levels (max 5). Reduce the replicate range.")
+  }
   ltype_values <- setNames(ltypes[seq_along(rep_levels)], as.character(rep_levels))
 
   make_panel <- function(data, color, show_legend = FALSE) {
