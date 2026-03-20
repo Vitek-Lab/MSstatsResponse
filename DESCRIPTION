@@ -39,6 +39,7 @@ Suggests:
     boot,
     purrr,
     gridExtra,
+    plotly,
     knitr,
     rmarkdown,
     BiocStyle,
