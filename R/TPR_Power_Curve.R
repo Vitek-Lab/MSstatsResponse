@@ -21,6 +21,9 @@
   if (length(concentrations) < 2) {
     stop("At least 2 unique concentrations are required.")
   }
+  if (!(0 %in% concentrations)) {
+    stop("Concentrations must include 0 (control).")
+  }
 
   control <- min(concentrations)
   highest <- max(concentrations)
