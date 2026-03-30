@@ -104,3 +104,20 @@ test_that("run_tpr_simulation accepts data and protein parameters", {
     NA  # NA means "expect NO error"
   )
 })
+
+test_that("run_tpr_simulation errors when data provided without protein", {
+  mock_data <- data.frame(
+    protein = "P1", drug = "Drug1", dose = c(0, 1e-6), response = c(20, 18)
+  )
+  expect_error(
+    run_tpr_simulation(
+      rep_range = c(1, 1),
+      concentrations = c(0, 1000),
+      dose_range = c(2, 2),
+      n_proteins = 10,
+      data = mock_data,
+      protein = NULL
+    ),
+    "protein must be specified when data is provided"
+  )
+})

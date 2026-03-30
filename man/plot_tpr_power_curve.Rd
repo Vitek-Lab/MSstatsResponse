@@ -15,8 +15,9 @@ An interactive \code{plotly} object.
 }
 \description{
 Creates an interactive plot showing how the true positive rate
-(detection power) changes with the number of doses and replicates
-for the user-selected protein template. Line color shading goes
+(detection power) changes with the number of doses and replicates.
+Only the results for the user-selected protein template (passed as
+the strong interaction category) are displayed. Line color shading goes
 from light (fewest replicates) to dark (most replicates).
 }
 \examples{

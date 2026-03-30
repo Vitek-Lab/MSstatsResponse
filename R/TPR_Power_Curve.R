@@ -178,6 +178,9 @@ run_tpr_simulation <- function(rep_range, concentrations, dose_range,
   if (dose_range[1] < 2) {
     stop("dose_range minimum must be at least 2 (control + one treatment).")
   }
+  if (!is.null(data) && is.null(protein)) {
+    stop("protein must be specified when data is provided.")
+  }
 
   conc_subsets <- .build_concentration_ladders(concentrations, dose_range)
   k_grid <- as.integer(names(conc_subsets))
@@ -256,8 +259,9 @@ run_tpr_simulation <- function(rep_range, concentrations, dose_range,
 #' Visualize detection power across experimental designs
 #'
 #' Creates an interactive plot showing how the true positive rate
-#' (detection power) changes with the number of doses and replicates
-#' for the user-selected protein template. Line color shading goes
+#' (detection power) changes with the number of doses and replicates.
+#' Only the results for the user-selected protein template (passed as
+#' the strong interaction category) are displayed. Line color shading goes
 #' from light (fewest replicates) to dark (most replicates).
 #'
 #' @param simulation_results A \code{data.frame} returned by

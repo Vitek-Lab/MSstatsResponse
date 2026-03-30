@@ -238,6 +238,10 @@ futureExperimentSimulation = function(N_proteins = 300,
     complete_profile = data.frame(dose = concentrations)
     complete_profile$LogIntensities = NA_real_
 
+    if (nrow(profile) > 0 && !any(profile$dose_numeric != 0)) {
+      warning("No non-zero dose measurements found for the selected protein. Template will use fallback values.")
+    }
+
     for (i in seq_len(nrow(complete_profile))) {
       target = complete_profile$dose[i]
       if (target == 0) {
