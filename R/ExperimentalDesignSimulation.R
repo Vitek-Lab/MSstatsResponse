@@ -222,23 +222,38 @@ futureExperimentSimulation = function(N_proteins = 300,
       ))
     }
 
-    # Get mean profile across proteins
+    # Get mean profile across proteins using string-based grouping to avoid floating point precision issues
     profile = drug_data %>%
       filter(protein %in% protein_ids) %>%
-      mutate(dose_nM = round(dose * 1e9)) %>%  # Convert M to nM and round to handle precision
-      group_by(dose_nM) %>%
+      mutate(dose_str = as.character(dose)) %>%
+      group_by(dose_str) %>%
       summarise(
         LogIntensities = mean(response, na.rm = TRUE),
+        dose_numeric = dose[1],
         .groups = 'drop'
-      ) %>%
-      rename(dose = dose_nM)
+      )
 
-    # Create complete profile with all concentrations
+    # Match profile doses to target concentrations using nearest-neighbor on log scale.
+    # This handles unit mismatches without assuming a fixed conversion factor.
     complete_profile = data.frame(dose = concentrations)
+    complete_profile$LogIntensities = NA_real_
 
-    # Merge with existing data
-    complete_profile = complete_profile %>%
-      left_join(profile, by = "dose")
+    for (i in seq_len(nrow(complete_profile))) {
+      target = complete_profile$dose[i]
+      if (target == 0) {
+        # Control: match any zero-dose entry
+        zero_match = profile[profile$dose_numeric == 0, ]
+        if (nrow(zero_match) > 0) {
+          complete_profile$LogIntensities[i] = zero_match$LogIntensities[1]
+        }
+      } else if (any(profile$dose_numeric != 0)) {
+        # Non-zero: find closest on log scale
+        non_zero = profile[profile$dose_numeric != 0, ]
+        log_ratios = abs(log10(non_zero$dose_numeric) - log10(target))
+        best = which.min(log_ratios)
+        complete_profile$LogIntensities[i] = non_zero$LogIntensities[best]
+      }
+    }
 
     # Fill missing values with interpolation or nearest neighbor
     for (i in which(is.na(complete_profile$LogIntensities))) {
@@ -306,11 +321,32 @@ futureExperimentSimulation = function(N_proteins = 300,
     return(complete_profile)
   }
 
-  # Extract templates for each category
+  # Load default templates as fallback for unspecified categories
+  default_template <- NULL
+  if (is.null(weak_proteins) || is.null(no_interaction_proteins)) {
+    template1_path <- system.file("extdata", "template1.RDS", package = "MSstatsResponse")
+    if (file.exists(template1_path)) {
+      default_template <- readRDS(template1_path)
+    }
+  }
+
+  # Extract templates: use user data for specified proteins, defaults for others
   template = list(
     strong_interaction = .getMeanProfile(strong_proteins, drug_data, concentrations),
-    weak_interaction = .getMeanProfile(weak_proteins, drug_data, concentrations),
-    no_interaction = .getMeanProfile(no_interaction_proteins, drug_data, concentrations)
+    weak_interaction = if (!is.null(weak_proteins)) {
+      .getMeanProfile(weak_proteins, drug_data, concentrations)
+    } else if (!is.null(default_template)) {
+      default_template$weak_interaction[default_template$weak_interaction$dose %in% concentrations, ]
+    } else {
+      .getMeanProfile(NULL, drug_data, concentrations)
+    },
+    no_interaction = if (!is.null(no_interaction_proteins)) {
+      .getMeanProfile(no_interaction_proteins, drug_data, concentrations)
+    } else if (!is.null(default_template)) {
+      default_template$no_interaction[default_template$no_interaction$dose %in% concentrations, ]
+    } else {
+      .getMeanProfile(NULL, drug_data, concentrations)
+    }
   )
 
   # Validate template format

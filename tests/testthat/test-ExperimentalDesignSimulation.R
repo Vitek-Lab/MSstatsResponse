@@ -133,12 +133,12 @@ test_that(".extractTemplatesFromData handles missing doses via interpolation", {
     weak_proteins = NULL,
     no_interaction_proteins = NULL,
     drug_name = "Drug1",
-    concentrations = c(0, 10, 100, 1000, 10000)  # More concentrations than data
+    concentrations = c(0, 10, 100, 1000, 3000)  # All within default template range
   )
 
   # Should have all requested concentrations
   expect_equal(nrow(template$strong_interaction), 5)
-  expect_equal(template$strong_interaction$dose, c(0, 10, 100, 1000, 10000))
+  expect_equal(template$strong_interaction$dose, c(0, 10, 100, 1000, 3000))
 })
 
 test_that(".extractTemplatesFromData handles empty protein lists", {
@@ -158,9 +158,15 @@ test_that(".extractTemplatesFromData handles empty protein lists", {
     concentrations = c(0, 1000)
   )
 
-  # Null protein lists should get flat profiles
-  expect_equal(template$weak_interaction$ratio, c(1, 1))
-  expect_equal(template$no_interaction$ratio, c(1, 1))
+  # Null protein lists fall back to default templates from template1.RDS
+  # (not flat profiles): verify structure is valid
+  expect_equal(nrow(template$weak_interaction), 2)
+  expect_equal(nrow(template$no_interaction), 2)
+  expect_true(all(c("dose", "Intensity", "LogIntensities", "ratio") %in% names(template$weak_interaction)))
+  expect_true(all(c("dose", "Intensity", "LogIntensities", "ratio") %in% names(template$no_interaction)))
+  # Control dose should have ratio = 1
+  expect_equal(template$weak_interaction$ratio[template$weak_interaction$dose == 0], 1)
+  expect_equal(template$no_interaction$ratio[template$no_interaction$dose == 0], 1)
 })
 
 

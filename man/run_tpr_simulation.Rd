@@ -2,19 +2,86 @@
 % Please edit documentation in R/TPR_Power_Curve.R
 \name{run_tpr_simulation}
 \alias{run_tpr_simulation}
-\title{Run TPR simulation across a grid of concentration counts and replicate counts}
+\title{Simulate detection power across experimental design configurations}
 \usage{
-run_tpr_simulation(rep_range, n_proteins = 1000)
+run_tpr_simulation(
+  rep_range,
+  concentrations,
+  dose_range,
+  data = NULL,
+  protein = NULL,
+  n_proteins = 1000
+)
 }
 \arguments{
-\item{rep_range}{Integer vector of length 2, c(min, max) for replicate sweep.}
+\item{rep_range}{Integer vector of length 2, \code{c(min, max)}. The range
+of biological replicates per dose to evaluate. Each value in the sequence
+\code{min:max} produces one line in the resulting power curve.}
 
-\item{n_proteins}{Integer. Number of proteins to simulate. Default: 1000.}
+\item{concentrations}{Numeric vector. The full set of drug concentrations
+available in the experiment (e.g., \code{c(0, 1, 3, 10, 30, 100, 300, 1000, 3000)}).}
+
+\item{dose_range}{Integer vector of length 2, \code{c(min, max)}. The range
+of dose counts to sweep. For example, \code{c(2, 9)} evaluates designs
+with 2 doses, 3 doses, ..., up to 9 doses.}
+
+\item{data}{Optional. User's prepared dose-response data (e.g., from
+\code{MSstatsPrepareDoseResponseFit}). If provided, protein-specific
+templates are extracted from this data instead of using defaults.}
+
+\item{protein}{Optional. Character string specifying a protein ID to use as
+the strong interaction template. Only used when \code{data} is provided.}
+
+\item{n_proteins}{Integer. Number of proteins to simulate per run. Larger
+values give more stable estimates but increase runtime. Default: 1000.}
 }
 \value{
-A data.frame with columns: Interaction, TPR, N_rep, NumConcs.
+A \code{data.frame} with columns:
+\describe{
+\item{Interaction}{Character. "Strong" or "Weak".}
+\item{TPR}{Numeric. True positive rate as a percentage (0-100).}
+\item{N_rep}{Integer. Number of replicates used in this simulation.}
+\item{NumConcs}{Integer. Number of concentrations used in this simulation.}
+}
 }
 \description{
-Sweeps over combinations of dose counts (2-9) and replicate counts,
-calling \code{futureExperimentSimulation()} for each combination.
+Evaluates how well a dose-response proteomics experiment can detect
+drug-protein interactions under different experimental designs. For each
+combination of replicate count and number of doses, the function simulates
+a full experiment and measures the true positive rate (TPR); the
+percentage of known interacting proteins that are correctly identified.
+}
+\details{
+This helps experimentalists answer practical questions like: "If I can
+only afford 3 replicates per dose, how many dose levels do I need to
+reliably detect weak interactions?"
+
+Concentration subsets are selected automatically from the user's available
+doses: control (0) and the highest dose are always included, and
+intermediate doses are added by choosing the one farthest from the
+log-median of the already-selected set.
+}
+\examples{
+# Quick example with small simulation (for speed)
+results <- run_tpr_simulation(
+  rep_range = c(1, 2),
+  concentrations = c(0, 10, 100, 1000),
+  dose_range = c(2, 4),
+  n_proteins = 50
+)
+head(results)
+
+\dontrun{
+# Full power analysis with standard chemoproteomic doses
+results <- run_tpr_simulation(
+  rep_range = c(1, 5),
+  concentrations = c(0, 1, 3, 10, 30, 100, 300, 1000, 3000),
+  dose_range = c(2, 9),
+  n_proteins = 1000
+)
+
+# Visualize results
+plot_tpr_power_curve(results)
+}
+
 }

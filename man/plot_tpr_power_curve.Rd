@@ -2,17 +2,32 @@
 % Please edit documentation in R/TPR_Power_Curve.R
 \name{plot_tpr_power_curve}
 \alias{plot_tpr_power_curve}
-\title{Plot TPR power curves for dose response proteomics experiments}
+\title{Visualize detection power across experimental designs}
 \usage{
 plot_tpr_power_curve(simulation_results)
 }
 \arguments{
-\item{simulation_results}{A data.frame from \code{run_tpr_simulation()}.}
+\item{simulation_results}{A \code{data.frame} returned by
+\code{\link{run_tpr_simulation}}.}
 }
 \value{
-A plotly object with two panels (Strong and Weak interaction).
+An interactive \code{plotly} object.
 }
 \description{
-Creates a two-panel interactive plot showing True Positive Rate
-for Strong and Weak interactions across concentration and replicate counts.
+Creates an interactive plot showing how the true positive rate
+(detection power) changes with the number of doses and replicates
+for the user-selected protein template. Line color shading goes
+from light (fewest replicates) to dark (most replicates).
+}
+\examples{
+\dontrun{
+results <- run_tpr_simulation(
+  rep_range = c(1, 3),
+  concentrations = c(0, 10, 100, 1000),
+  dose_range = c(2, 4),
+  n_proteins = 300
+)
+plot_tpr_power_curve(results)
+}
+
 }
