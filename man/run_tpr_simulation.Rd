@@ -62,22 +62,23 @@ intermediate doses are added by choosing the one farthest from the
 log-median of the already-selected set.
 }
 \examples{
-# Quick example with small simulation (for speed)
+\dontrun{
+# Prepare user data
+mock_data <- data.frame(
+  protein = rep("P1", 6),
+  drug = c("DMSO", "DMSO", "Drug1", "Drug1", "Drug1", "Drug1"),
+  dose = c(0, 0, 10, 100, 1000, 1000),
+  response = c(20, 20, 18, 15, 12, 12)
+)
+
+# Run power analysis
 results <- run_tpr_simulation(
-  rep_range = c(1, 2),
+  rep_range = c(1, 3),
   concentrations = c(0, 10, 100, 1000),
   dose_range = c(2, 4),
-  n_proteins = 50
-)
-head(results)
-
-\dontrun{
-# Full power analysis with standard chemoproteomic doses
-results <- run_tpr_simulation(
-  rep_range = c(1, 5),
-  concentrations = c(0, 1, 3, 10, 30, 100, 300, 1000, 3000),
-  dose_range = c(2, 9),
-  n_proteins = 1000
+  data = mock_data,
+  protein = "P1",
+  n_proteins = 300
 )
 
 # Visualize results
