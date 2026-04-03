@@ -5,7 +5,6 @@ test_that("build_concentration_ladders returns correct subset sizes", {
   expect_equal(length(result), 4)
   expect_equal(names(result), c("2", "3", "4", "5"))
 
-  # All subsets should contain control and highest dose
   for (k in names(result)) {
     expect_true(0 %in% result[[k]])
     expect_true(3000 %in% result[[k]])
@@ -30,6 +29,13 @@ test_that("build_concentration_ladders errors on fewer than 2 concentrations", {
   )
 })
 
+test_that("build_concentration_ladders errors without control dose", {
+  expect_error(
+    MSstatsResponse:::.build_concentration_ladders(c(1, 10, 100), c(2, 3)),
+    "must include 0"
+  )
+})
+
 test_that("build_concentration_ladders handles arbitrary user concentrations", {
   concs <- c(0, 2, 4, 20, 50, 100, 500, 1000)
   result <- MSstatsResponse:::.build_concentration_ladders(concs, c(2, 6))
@@ -42,82 +48,69 @@ test_that("build_concentration_ladders handles arbitrary user concentrations", {
 })
 
 test_that("run_tpr_simulation validates rep_range", {
+  mock_data <- data.frame(protein = "P1", drug = "D1", dose = 0, response = 20)
   expect_error(
-    run_tpr_simulation(c(3, 1), c(0, 100, 1000), c(2, 3)),
+    run_tpr_simulation(c(3, 1), c(0, 100, 1000), c(2, 3), data = mock_data, protein = "P1"),
     "min <= max"
   )
   expect_error(
-    run_tpr_simulation("bad", c(0, 100, 1000), c(2, 3)),
+    run_tpr_simulation("bad", c(0, 100, 1000), c(2, 3), data = mock_data, protein = "P1"),
     "numeric vector"
   )
 })
 
 test_that("run_tpr_simulation validates dose_range", {
+  mock_data <- data.frame(protein = "P1", drug = "D1", dose = 0, response = 20)
   expect_error(
-    run_tpr_simulation(c(1, 2), c(0, 100, 1000), c(5, 2)),
+    run_tpr_simulation(c(1, 2), c(0, 100, 1000), c(5, 2), data = mock_data, protein = "P1"),
     "min <= max"
   )
   expect_error(
-    run_tpr_simulation(c(1, 2), c(0, 100, 1000), c(1, 3)),
+    run_tpr_simulation(c(1, 2), c(0, 100, 1000), c(1, 3), data = mock_data, protein = "P1"),
     "at least 2"
   )
 })
 
 test_that("run_tpr_simulation returns correct structure", {
+  mock_data <- data.frame(
+    protein = rep("P1", 6),
+    drug = c("DMSO", "DMSO", "Drug1", "Drug1", "Drug1", "Drug1"),
+    dose = c(0, 0, 10, 100, 1000, 1000),
+    response = c(20, 20, 18, 15, 12, 12)
+  )
+
   results <- run_tpr_simulation(
     rep_range = c(1, 2),
     concentrations = c(0, 10, 100, 1000),
     dose_range = c(2, 3),
+    data = mock_data,
+    protein = "P1",
     n_proteins = 50
   )
 
   expect_true(is.data.frame(results))
   expect_true(all(c("Interaction", "TPR", "N_rep", "NumConcs") %in% colnames(results)))
-  expect_true(all(results$Interaction %in% c("Strong", "Weak")))
+  expect_true(all(results$Interaction == "Strong"))
   expect_true(all(results$TPR >= 0 & results$TPR <= 100))
 })
 
 test_that("plot_tpr_power_curve returns a plotly object", {
+  mock_data <- data.frame(
+    protein = rep("P1", 6),
+    drug = c("DMSO", "DMSO", "Drug1", "Drug1", "Drug1", "Drug1"),
+    dose = c(0, 0, 10, 100, 1000, 1000),
+    response = c(20, 20, 18, 15, 12, 12)
+  )
+
   results <- run_tpr_simulation(
     rep_range = c(1, 2),
     concentrations = c(0, 10, 100, 1000),
     dose_range = c(2, 3),
+    data = mock_data,
+    protein = "P1",
     n_proteins = 50
   )
 
   p <- plot_tpr_power_curve(results)
   expect_true(inherits(p, "plotly"))
-})
-
-test_that("run_tpr_simulation accepts data and protein parameters", {
-  # Verify the function signature accepts these params without error
-  # (actual template extraction is tested via integration/manual testing)
-  expect_error(
-    run_tpr_simulation(
-      rep_range = c(1, 1),
-      concentrations = c(0, 100, 1000),
-      dose_range = c(2, 3),
-      n_proteins = 10,
-      data = NULL,
-      protein = NULL
-    ),
-    NA  # NA means "expect NO error"
-  )
-})
-
-test_that("run_tpr_simulation errors when data provided without protein", {
-  mock_data <- data.frame(
-    protein = "P1", drug = "Drug1", dose = c(0, 1e-6), response = c(20, 18)
-  )
-  expect_error(
-    run_tpr_simulation(
-      rep_range = c(1, 1),
-      concentrations = c(0, 1000),
-      dose_range = c(2, 2),
-      n_proteins = 10,
-      data = mock_data,
-      protein = NULL
-    ),
-    "protein must be specified when data is provided"
-  )
 })

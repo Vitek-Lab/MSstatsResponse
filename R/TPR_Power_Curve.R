@@ -60,7 +60,11 @@
   result <- result[!sapply(result, is.null)]
 
   if (length(result) == 0) {
-    stop("No valid concentration subsets could be generated for the given dose_range.")
+    stop(paste0("Cannot build concentration subsets for dose_range c(",
+                dose_range[1], ", ", dose_range[2],
+                "). You have ", length(concentrations),
+                " unique concentrations. dose_range[2] must be <= ",
+                length(concentrations), "."))
   }
   return(result)
 }
@@ -76,9 +80,9 @@
 #'
 #' @return A data.frame with columns: Interaction, TPR, N_rep, NumConcs.
 #' @noRd
-.run_one_tpr_simulation <- function(n_rep, concs, n_proteins, data = NULL,
-                                     protein = NULL, seed = 123) {
-  set.seed(seed + n_rep * 100 + length(concs))
+.run_one_tpr_simulation <- function(n_rep, concs, n_proteins, data,
+                                     protein, seed = 123) {
+  set.seed(seed)
 
   sim_args <- list(
     N_proteins = n_proteins,
@@ -86,16 +90,12 @@
     Concentrations = concs,
     IC50_Prediction = FALSE
   )
-  if (!is.null(data)) {
-    sim_args$data <- data
-  }
-  if (!is.null(protein) && !is.null(data)) {
-    sim_args$strong_proteins <- protein
-  }
+  sim_args$data <- data
+  sim_args$strong_proteins <- protein
 
   temp_res <- do.call(futureExperimentSimulation, sim_args)
   temp_res$Hit_Rates_Data |>
-    dplyr::filter(Category %in% c("TPR (Strong)", "TPR (Weak)")) |>
+    dplyr::filter(Category == "TPR (Strong)") |>
     dplyr::mutate(
       N_rep = n_rep,
       NumConcs = length(concs),
@@ -129,11 +129,11 @@
 #' @param dose_range Integer vector of length 2, \code{c(min, max)}. The range
 #'   of dose counts to sweep. For example, \code{c(2, 9)} evaluates designs
 #'   with 2 doses, 3 doses, ..., up to 9 doses.
-#' @param data Optional. User's prepared dose-response data (e.g., from
-#'   \code{MSstatsPrepareDoseResponseFit}). If provided, protein-specific
-#'   templates are extracted from this data instead of using defaults.
-#' @param protein Optional. Character string specifying a protein ID to use as
-#'   the strong interaction template. Only used when \code{data} is provided.
+#' @param data User's prepared dose-response data (e.g., from
+#'   \code{MSstatsPrepareDoseResponseFit}). Protein-specific templates are
+#'   extracted from this data for the simulation.
+#' @param protein Character string specifying a protein ID to use as
+#'   the interaction template for the power analysis.
 #' @param n_proteins Integer. Number of proteins to simulate per run. Larger
 #'   values give more stable estimates but increase runtime. Default: 1000.
 #'
@@ -171,7 +171,7 @@
 #' @importFrom dplyr filter mutate select if_else
 #' @export
 run_tpr_simulation <- function(rep_range, concentrations, dose_range,
-                                data = NULL, protein = NULL, n_proteins = 1000) {
+                                data, protein, n_proteins = 1000) {
   if (!is.numeric(rep_range) || length(rep_range) != 2 || rep_range[1] > rep_range[2]) {
     stop("rep_range must be a numeric vector of length 2 with c(min, max) where min <= max.")
   }
@@ -180,9 +180,6 @@ run_tpr_simulation <- function(rep_range, concentrations, dose_range,
   }
   if (dose_range[1] < 2) {
     stop("dose_range minimum must be at least 2 (control + one treatment).")
-  }
-  if (!is.null(data) && is.null(protein)) {
-    stop("protein must be specified when data is provided.")
   }
 
   conc_subsets <- .build_concentration_ladders(concentrations, dose_range)

@@ -236,28 +236,16 @@ futureExperimentSimulation = function(N_proteins = 300,
     # Match profile doses to target concentrations using nearest-neighbor on log scale.
     # This handles unit mismatches without assuming a fixed conversion factor.
     complete_profile = data.frame(dose = concentrations)
-    complete_profile$LogIntensities = NA_real_
 
     if (nrow(profile) > 0 && !any(profile$dose_numeric != 0)) {
-      warning("No non-zero dose measurements found for the selected protein. Template will use fallback values.")
+      stop("No non-zero dose measurements found for the selected protein.")
     }
 
-    for (i in seq_len(nrow(complete_profile))) {
-      target = complete_profile$dose[i]
-      if (target == 0) {
-        # Control: match any zero-dose entry
-        zero_match = profile[profile$dose_numeric == 0, ]
-        if (nrow(zero_match) > 0) {
-          complete_profile$LogIntensities[i] = zero_match$LogIntensities[1]
-        }
-      } else if (any(profile$dose_numeric != 0)) {
-        # Non-zero: find closest on log scale
-        non_zero = profile[profile$dose_numeric != 0, ]
-        log_ratios = abs(log10(non_zero$dose_numeric) - log10(target))
-        best = which.min(log_ratios)
-        complete_profile$LogIntensities[i] = non_zero$LogIntensities[best]
-      }
-    }
+    # Match by string representation to avoid floating point issues
+    complete_profile = complete_profile %>%
+      mutate(dose_str = as.character(dose)) %>%
+      left_join(profile %>% select(dose_str, LogIntensities), by = "dose_str") %>%
+      select(-dose_str)
 
     # Fill missing values with interpolation or nearest neighbor
     for (i in which(is.na(complete_profile$LogIntensities))) {
@@ -325,32 +313,11 @@ futureExperimentSimulation = function(N_proteins = 300,
     return(complete_profile)
   }
 
-  # Load default templates as fallback for unspecified categories
-  default_template <- NULL
-  if (is.null(weak_proteins) || is.null(no_interaction_proteins)) {
-    template1_path <- system.file("extdata", "template1.RDS", package = "MSstatsResponse")
-    if (file.exists(template1_path)) {
-      default_template <- readRDS(template1_path)
-    }
-  }
-
-  # Extract templates: use user data for specified proteins, defaults for others
+  # Extract templates: use user data for specified proteins, baseline for others
   template = list(
     strong_interaction = .getMeanProfile(strong_proteins, drug_data, concentrations),
-    weak_interaction = if (!is.null(weak_proteins)) {
-      .getMeanProfile(weak_proteins, drug_data, concentrations)
-    } else if (!is.null(default_template)) {
-      default_template$weak_interaction[default_template$weak_interaction$dose %in% concentrations, ]
-    } else {
-      .getMeanProfile(NULL, drug_data, concentrations)
-    },
-    no_interaction = if (!is.null(no_interaction_proteins)) {
-      .getMeanProfile(no_interaction_proteins, drug_data, concentrations)
-    } else if (!is.null(default_template)) {
-      default_template$no_interaction[default_template$no_interaction$dose %in% concentrations, ]
-    } else {
-      .getMeanProfile(NULL, drug_data, concentrations)
-    }
+    weak_interaction = .getMeanProfile(weak_proteins, drug_data, concentrations),
+    no_interaction = .getMeanProfile(no_interaction_proteins, drug_data, concentrations)
   )
 
   # Validate template format

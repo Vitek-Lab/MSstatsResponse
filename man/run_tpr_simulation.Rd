@@ -8,8 +8,8 @@ run_tpr_simulation(
   rep_range,
   concentrations,
   dose_range,
-  data = NULL,
-  protein = NULL,
+  data,
+  protein,
   n_proteins = 1000
 )
 }
@@ -25,12 +25,12 @@ available in the experiment (e.g., \code{c(0, 1, 3, 10, 30, 100, 300, 1000, 3000
 of dose counts to sweep. For example, \code{c(2, 9)} evaluates designs
 with 2 doses, 3 doses, ..., up to 9 doses.}
 
-\item{data}{Optional. User's prepared dose-response data (e.g., from
-\code{MSstatsPrepareDoseResponseFit}). If provided, protein-specific
-templates are extracted from this data instead of using defaults.}
+\item{data}{User's prepared dose-response data (e.g., from
+\code{MSstatsPrepareDoseResponseFit}). Protein-specific templates are
+extracted from this data for the simulation.}
 
-\item{protein}{Optional. Character string specifying a protein ID to use as
-the strong interaction template. Only used when \code{data} is provided.}
+\item{protein}{Character string specifying a protein ID to use as
+the interaction template for the power analysis.}
 
 \item{n_proteins}{Integer. Number of proteins to simulate per run. Larger
 values give more stable estimates but increase runtime. Default: 1000.}
