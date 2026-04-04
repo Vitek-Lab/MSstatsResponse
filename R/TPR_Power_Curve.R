@@ -216,8 +216,6 @@ run_tpr_simulation <- function(rep_range, concentrations, dose_range,
 #' Create a single TPR panel plot with color gradient by replicate count
 #'
 #' @param data Data frame with TPR results for one interaction type.
-#' @param color_low Character. Light shade for fewest replicates.
-#' @param color_high Character. Dark shade for most replicates.
 #' @param k_grid Integer vector. X-axis breaks.
 #' @param show_legend Logical. Whether to display the legend.
 #'
@@ -225,13 +223,24 @@ run_tpr_simulation <- function(rep_range, concentrations, dose_range,
 #' @importFrom ggplot2 ggplot aes geom_line geom_point scale_x_continuous
 #'   scale_y_continuous scale_color_manual labs theme_bw theme element_text
 #' @noRd
-.make_tpr_panel <- function(data, color_low, color_high, k_grid, show_legend = FALSE) {
+.make_tpr_panel <- function(data, k_grid, show_legend = FALSE) {
   rep_levels <- sort(unique(data$N_rep))
   n_levels <- length(rep_levels)
 
-  # Generate gradient from light to dark
-  color_palette <- grDevices::colorRampPalette(c(color_low, color_high))(n_levels)
-  names(color_palette) <- as.character(rep_levels)
+  # 10 distinct colors for up to 10 replicate levels
+  all_colors <- c(
+    "#1f78b4",  # strong blue
+    "#ff964f",  # orange
+    "#17becf",  # cyan
+    "#1b9e77",  # teal
+    "#f0b6d5",  # pink
+    "#DC143C",  # crimson
+    "#6a3d9a",  # purple
+    "#9e9ac8",  # lavender
+    "#525252",  # cool dark gray
+    "#08306b"   # deep navy
+  )
+  color_palette <- setNames(all_colors[seq_len(n_levels)], as.character(rep_levels))
 
   p <- ggplot2::ggplot(data,
     ggplot2::aes(x = NumConcs, y = TPR,
@@ -284,7 +293,6 @@ run_tpr_simulation <- function(rep_range, concentrations, dose_range,
 #' @importFrom ggplot2 ggplot aes geom_line geom_point scale_x_continuous
 #'   scale_y_continuous scale_color_manual labs theme_bw theme element_text
 #' @importFrom plotly ggplotly layout
-#' @importFrom grDevices colorRampPalette
 #' @export
 plot_tpr_power_curve <- function(simulation_results) {
   k_grid <- sort(unique(simulation_results$NumConcs))
@@ -292,7 +300,7 @@ plot_tpr_power_curve <- function(simulation_results) {
   # Use only the Strong interaction results (user-selected protein template)
   results_protein <- simulation_results[simulation_results$Interaction == "Strong", ]
 
-  p <- .make_tpr_panel(results_protein, "#a6dba0", "#1b7837", k_grid, TRUE)
+  p <- .make_tpr_panel(results_protein, k_grid, TRUE)
 
   plotly::ggplotly(p) |> plotly::layout(
     margin = list(t = 60),
