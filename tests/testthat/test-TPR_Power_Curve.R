@@ -92,6 +92,27 @@ test_that("run_tpr_simulation returns correct structure", {
   expect_true(all(c("Interaction", "TPR", "N_rep", "NumConcs") %in% colnames(results)))
   expect_true(all(results$Interaction == "Strong"))
   expect_true(all(results$TPR >= 0 & results$TPR <= 100))
+
+  # TPR should generally increase with more replicates for a given concentration count
+  for (nc in unique(results$NumConcs)) {
+    subset <- results[results$NumConcs == nc, ]
+    subset <- subset[order(subset$N_rep), ]
+    if (nrow(subset) >= 2) {
+      # Allow for some noise, but overall trend should be non-decreasing
+      expect_true(subset$TPR[nrow(subset)] >= subset$TPR[1],
+                  info = paste("TPR should increase with replicates at NumConcs =", nc))
+    }
+  }
+
+  # TPR should generally increase with more concentrations for a given replicate count
+  for (nr in unique(results$N_rep)) {
+    subset <- results[results$N_rep == nr, ]
+    subset <- subset[order(subset$NumConcs), ]
+    if (nrow(subset) >= 2) {
+      expect_true(subset$TPR[nrow(subset)] >= subset$TPR[1],
+                  info = paste("TPR should increase with concentrations at N_rep =", nr))
+    }
+  }
 })
 
 test_that("plot_tpr_power_curve returns a plotly object", {

@@ -25,6 +25,12 @@
     stop("Concentrations must include 0 (control).")
   }
 
+  if (dose_range[2] > length(concentrations)) {
+    stop(paste0("dose_range maximum (", dose_range[2],
+                ") exceeds the number of available concentrations (",
+                length(concentrations), ")."))
+  }
+
   control <- min(concentrations)
   highest <- max(concentrations)
   candidates <- setdiff(concentrations, c(control, highest))
@@ -55,17 +61,8 @@
   }
 
   # Filter to requested dose_range
-  k_range <- seq(dose_range[1], min(dose_range[2], length(concentrations)))
+  k_range <- seq(dose_range[1], dose_range[2])
   result <- selection_order[as.character(k_range)]
-  result <- result[!sapply(result, is.null)]
-
-  if (length(result) == 0) {
-    stop(paste0("Cannot build concentration subsets for dose_range c(",
-                dose_range[1], ", ", dose_range[2],
-                "). You have ", length(concentrations),
-                " unique concentrations. dose_range[2] must be <= ",
-                length(concentrations), "."))
-  }
   return(result)
 }
 
@@ -74,8 +71,8 @@
 #' @param n_rep Integer. Number of replicates per dose.
 #' @param concs Numeric vector. Concentrations to use.
 #' @param n_proteins Integer. Number of proteins to simulate.
-#' @param data Optional prepared dose-response data for user-based templates.
-#' @param protein Optional protein ID for strong interaction template.
+#' @param data Prepared dose-response data for user-based templates.
+#' @param protein Protein ID for strong interaction template.
 #' @param seed Integer. Base seed for reproducibility.
 #'
 #' @return A data.frame with columns: Interaction, TPR, N_rep, NumConcs.
