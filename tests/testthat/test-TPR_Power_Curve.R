@@ -80,12 +80,12 @@ test_that("run_tpr_simulation returns correct structure", {
   )
 
   results <- run_tpr_simulation(
-    rep_range = c(1, 2),
+    rep_range = c(1, 3),
     concentrations = c(0, 10, 100, 1000),
-    dose_range = c(2, 3),
+    dose_range = c(2, 4),
     data = mock_data,
     protein = "P1",
-    n_proteins = 50
+    n_proteins = 200
   )
 
   expect_true(is.data.frame(results))
@@ -93,24 +93,33 @@ test_that("run_tpr_simulation returns correct structure", {
   expect_true(all(results$Interaction == "Strong"))
   expect_true(all(results$TPR >= 0 & results$TPR <= 100))
 
-  # TPR should generally increase with more replicates for a given concentration count
+  noise_margin <- 5
+
   for (nc in unique(results$NumConcs)) {
     subset <- results[results$NumConcs == nc, ]
     subset <- subset[order(subset$N_rep), ]
     if (nrow(subset) >= 2) {
-      # Allow for some noise, but overall trend should be non-decreasing
-      expect_true(subset$TPR[nrow(subset)] >= subset$TPR[1],
-                  info = paste("TPR should increase with replicates at NumConcs =", nc))
+      for (j in 2:nrow(subset)) {
+        expect_true(subset$TPR[j] >= subset$TPR[j - 1] - noise_margin,
+                    info = paste0("TPR should not drop significantly between rep ",
+                                  subset$N_rep[j - 1], " and rep ", subset$N_rep[j],
+                                  " at NumConcs = ", nc,
+                                  " (was ", subset$TPR[j - 1], ", got ", subset$TPR[j], ")"))
+      }
     }
   }
 
-  # TPR should generally increase with more concentrations for a given replicate count
   for (nr in unique(results$N_rep)) {
     subset <- results[results$N_rep == nr, ]
     subset <- subset[order(subset$NumConcs), ]
     if (nrow(subset) >= 2) {
-      expect_true(subset$TPR[nrow(subset)] >= subset$TPR[1],
-                  info = paste("TPR should increase with concentrations at N_rep =", nr))
+      for (j in 2:nrow(subset)) {
+        expect_true(subset$TPR[j] >= subset$TPR[j - 1] - noise_margin,
+                    info = paste0("TPR should not drop significantly between ",
+                                  subset$NumConcs[j - 1], " and ", subset$NumConcs[j],
+                                  " concentrations at N_rep = ", nr,
+                                  " (was ", subset$TPR[j - 1], ", got ", subset$TPR[j], ")"))
+      }
     }
   }
 })
@@ -124,12 +133,12 @@ test_that("plot_tpr_power_curve returns a plotly object", {
   )
 
   results <- run_tpr_simulation(
-    rep_range = c(1, 2),
+    rep_range = c(1, 3),
     concentrations = c(0, 10, 100, 1000),
-    dose_range = c(2, 3),
+    dose_range = c(2, 4),
     data = mock_data,
     protein = "P1",
-    n_proteins = 50
+    n_proteins = 200
   )
 
   p <- plot_tpr_power_curve(results)

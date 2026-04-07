@@ -4,14 +4,15 @@
 \alias{plot_tpr_power_curve}
 \title{Visualize detection power across experimental designs}
 \usage{
-plot_tpr_power_curve(simulation_results)
+plot_tpr_power_curve(simulation_results, static = FALSE)
 }
 \arguments{
-\item{simulation_results}{A \code{data.frame} returned by
-\code{\link{run_tpr_simulation}}.}
+\item{static}{Logical. If \code{TRUE}, returns a static \code{ggplot}
+object suitable for PDF export. Default: \code{FALSE}.}
 }
 \value{
-An interactive \code{plotly} object.
+An interactive \code{plotly} object, or a static \code{ggplot}
+object if \code{static = TRUE}.
 }
 \description{
 Creates an interactive plot showing how the true positive rate

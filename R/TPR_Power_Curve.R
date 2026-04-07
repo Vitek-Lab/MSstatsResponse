@@ -271,10 +271,11 @@ run_tpr_simulation <- function(rep_range, concentrations, dose_range,
 #' the strong interaction category) are displayed. Line color shading goes
 #' from light (fewest replicates) to dark (most replicates).
 #'
-#' @param simulation_results A \code{data.frame} returned by
-#'   \code{\link{run_tpr_simulation}}.
+#' @param static Logical. If \code{TRUE}, returns a static \code{ggplot}
+#'   object suitable for PDF export. Default: \code{FALSE}.
 #'
-#' @return An interactive \code{plotly} object.
+#' @return An interactive \code{plotly} object, or a static \code{ggplot}
+#'   object if \code{static = TRUE}.
 #'
 #' @examples
 #' \dontrun{
@@ -291,13 +292,16 @@ run_tpr_simulation <- function(rep_range, concentrations, dose_range,
 #'   scale_y_continuous scale_color_manual labs theme_bw theme element_text
 #' @importFrom plotly ggplotly layout
 #' @export
-plot_tpr_power_curve <- function(simulation_results) {
+plot_tpr_power_curve <- function(simulation_results, static = FALSE) {
   k_grid <- sort(unique(simulation_results$NumConcs))
 
   # Use only the Strong interaction results (user-selected protein template)
   results_protein <- simulation_results[simulation_results$Interaction == "Strong", ]
 
-  p <- .make_tpr_panel(results_protein, k_grid, TRUE)
+  p <- .make_tpr_panel(results_protein, k_grid, TRUE) +
+    ggplot2::ggtitle("Interaction detection power")
+
+  if (static) return(p)
 
   plotly::ggplotly(p) |> plotly::layout(
     margin = list(t = 60),
