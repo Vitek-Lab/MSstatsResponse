@@ -33,7 +33,8 @@ Imports:
     parallel,
     data.table,
     tidyr,
-    stringr
+    stringr,
+    plotly
 Suggests:
     MSstats,
     MSstatsTMT,
