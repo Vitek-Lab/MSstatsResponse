@@ -222,23 +222,30 @@ futureExperimentSimulation = function(N_proteins = 300,
       ))
     }
 
-    # Get mean profile across proteins
+    # Get mean profile across proteins using string-based grouping to avoid floating point precision issues
     profile = drug_data %>%
       filter(protein %in% protein_ids) %>%
-      mutate(dose_nM = round(dose * 1e9)) %>%  # Convert M to nM and round to handle precision
-      group_by(dose_nM) %>%
+      mutate(dose_str = as.character(dose)) %>%
+      group_by(dose_str) %>%
       summarise(
         LogIntensities = mean(response, na.rm = TRUE),
+        dose_numeric = dose[1],
         .groups = 'drop'
-      ) %>%
-      rename(dose = dose_nM)
+      )
 
-    # Create complete profile with all concentrations
+    # Match profile doses to target concentrations using nearest-neighbor on log scale.
+    # This handles unit mismatches without assuming a fixed conversion factor.
     complete_profile = data.frame(dose = concentrations)
 
-    # Merge with existing data
+    if (nrow(profile) > 0 && !any(profile$dose_numeric != 0)) {
+      stop("No non-zero dose measurements found for the selected protein.")
+    }
+
+    # Match by string representation to avoid floating point issues
     complete_profile = complete_profile %>%
-      left_join(profile, by = "dose")
+      mutate(dose_str = as.character(dose)) %>%
+      left_join(profile %>% select(dose_str, LogIntensities), by = "dose_str") %>%
+      select(-dose_str)
 
     # Fill missing values with interpolation or nearest neighbor
     for (i in which(is.na(complete_profile$LogIntensities))) {
@@ -306,7 +313,7 @@ futureExperimentSimulation = function(N_proteins = 300,
     return(complete_profile)
   }
 
-  # Extract templates for each category
+  # Extract templates: use user data for specified proteins, baseline for others
   template = list(
     strong_interaction = .getMeanProfile(strong_proteins, drug_data, concentrations),
     weak_interaction = .getMeanProfile(weak_proteins, drug_data, concentrations),
