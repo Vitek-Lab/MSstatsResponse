@@ -87,6 +87,7 @@
 #' @importFrom stats pf p.adjust
 #' @importFrom dplyr filter select mutate group_by summarise arrange distinct
 #' @importFrom data.table rbindlist
+#' @importFrom utils setTxtProgressBar txtProgressBar
 doseResponseFit = function(data, weights = NULL,
                            increasing = FALSE,
                            transform_dose = TRUE,
@@ -117,6 +118,7 @@ doseResponseFit = function(data, weights = NULL,
     protein_list = unique(drug_subset$protein)
     results_list = list()
 
+    progress_bar = txtProgressBar(min = 0, max = length(protein_list), style = 3)
     for (i in seq_along(protein_list)) {
       tryCatch({
         suppressWarnings({
@@ -197,11 +199,13 @@ doseResponseFit = function(data, weights = NULL,
                                             setdiff(names(results_temp), c("protein", "drug", "direction")))]
             results_list[[i]] = results_temp
           }
+          setTxtProgressBar(progress_bar, i)
         })
       }, error = function(e) {
         warning(paste("Error for drug:", drug_type, "protein:", protein_list[i], ":", conditionMessage(e)))
       })
     }
+    close(progress_bar)
 
     # Combine and adjust p-values for this drug
     if (length(results_list) > 0) {

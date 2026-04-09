@@ -34,7 +34,8 @@ Imports:
     data.table,
     tidyr,
     stringr,
-    plotly
+    plotly,
+    utils
 Suggests:
     MSstats,
     MSstatsTMT,
