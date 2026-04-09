@@ -11,9 +11,10 @@ predictIC50(
   increasing = FALSE,
   transform_dose = TRUE,
   ratio_response = TRUE,
+  precalculated_ratios = FALSE,
   bootstrap = TRUE,
   BPPARAM = bpparam(),
-  target_response = 0.5
+  target_response = NULL
 )
 }
 \arguments{
@@ -23,23 +24,27 @@ predictIC50(
 
 \item{alpha}{Confidence level. Default = 0.10.}
 
-\item{increasing}{Logical. If TRUE, fit a non-decreasing trend. Default = FALSE.}
+\item{increasing}{Logical or character. If TRUE, fit a non-decreasing trend. If FALSE, fit non-increasing.
+If "both", fits both directions and selects the better fit. Default = FALSE.}
 
 \item{transform_dose}{Logical. If TRUE, applies log10(dose + 1) transformation. Default = TRUE.}
 
 \item{ratio_response}{Logical. If TRUE, use ratio response; else use log2 scale. Default = TRUE.}
 
+\item{precalculated_ratios}{Logical. If TRUE, assumes response column contains pre-calculated ratios.
+Default is FALSE.}
+
 \item{bootstrap}{Logical. If FALSE, skip confidence interval bootstrap estimation and only return IC50. Default = TRUE.}
 
-\item{BPPARAM}{A \code{BiocParallelParam} for parallel processing. The recommended usage
-is to \emph{register} a backend once (e.g., \code{register(MulticoreParam(workers=4))} on
-Linux/macOS or \code{register(SnowParam(workers=4, type="SOCK"))} on Windows) and pass
-\code{BPPARAM = bpparam()}. Default \code{bpparam()}.}
+\item{BPPARAM}{A \code{BiocParallelParam} for parallel processing. Default \code{bpparam()}.}
 
-\item{target_response}{Numeric, the response fraction (e.g., 0.5, 0.25, 0.75). Default = 0.5.}
+\item{target_response}{Numeric, the response fraction (e.g., 0.5, 0.25, 0.75, 1.5).
+For decreasing curves: use values < 1 (e.g., 0.5 for IC50).
+For increasing curves: use values > 1 (e.g., 1.5 for 50\% increase).
+Default = 0.5 (auto-adjusts to 1.5 for increasing curves).}
 }
 \value{
-A data frame with columns: protein, drug, IC50, IC50_lower_bound, IC50_upper_bound.
+A data frame with columns: protein, drug, IC50, IC50_lower_bound, IC50_upper_bound, direction.
 }
 \description{
 Predict IC50 (dose where response = target) for each protein and drug
@@ -76,8 +81,16 @@ ic50_quick <- predictIC50(
 )
 print(ic50_quick)
 
+# Example 2: Fit both increasing and decreasing curves
+ic50_both <- predictIC50(
+  data = example_data,
+  increasing = "both",
+  bootstrap = FALSE
+)
+print(ic50_both)
+
 \dontrun{
-# Example 2: Full IC50 estimation with bootstrap confidence intervals
+# Example 3: Full IC50 estimation with bootstrap confidence intervals
 ic50_results <- predictIC50(
   data = prepared_data,
   n_samples = 1000,
@@ -86,7 +99,7 @@ ic50_results <- predictIC50(
   bootstrap = TRUE
 )
 
-# Example 3: Parallel processing for large datasets
+# Example 4: Parallel processing for large datasets
 library(BiocParallel)
 ic50_parallel <- predictIC50(
   data = prepared_data,
@@ -95,10 +108,29 @@ ic50_parallel <- predictIC50(
   bootstrap = TRUE
 )
 
-# Example 4: IC50 at different response levels (IC25, IC75)
+# Example 5: IC50 at different response levels (IC25, IC75)
 ic25_results <- predictIC50(
   data = prepared_data,
   target_response = 0.25,
+  bootstrap = TRUE
+)
+
+# Example 6: Increasing curves with EC50 at 1.5x baseline
+ec50_results <- predictIC50(
+  data = prepared_data,
+  increasing = TRUE,
+  target_response = 1.5,
+  bootstrap = TRUE
+)
+
+# Example 7: Using pre-calculated ratios
+turnover_data <- prepared_data
+turnover_data$response <- 2^turnover_data$response /
+                          mean(2^turnover_data$response[turnover_data$dose == 0])
+
+ic50_precalc <- predictIC50(
+  data = turnover_data,
+  precalculated_ratios = TRUE,
   bootstrap = TRUE
 )
 }

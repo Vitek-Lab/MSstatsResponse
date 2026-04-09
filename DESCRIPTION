@@ -32,6 +32,8 @@ Imports:
     stats,
     parallel,
     data.table,
+    tidyr,
+    stringr,
     plotly
 Suggests:
     MSstats,

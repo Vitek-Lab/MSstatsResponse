@@ -7,44 +7,57 @@
 plotIsotonic(
   fit,
   ratio = TRUE,
+  precalculated_ratios = FALSE,
   show_ic50 = FALSE,
-  target_response = target_response,
+  target_response = 0.5,
   drug_name = NULL,
   protein_name = NULL,
-  x_lab = expression(Log[10] ~ "[drug (M)]"),
-  y_lab = "Log2 Intensity",
+  x_lab = NULL,
+  y_lab = NULL,
   title = NULL,
   ci = NULL,
   legend = FALSE,
   theme_style = "classic",
   original_label = FALSE,
-  transform_x = TRUE
+  transform_x = TRUE,
+  color_by = NULL,
+  original_data = NULL
 )
 }
 \arguments{
 \item{fit}{A model object returned by fitIsotonicRegression().}
 
-\item{ratio}{Logical. If TRUE, shows plot on the ratio scale relative to DMSO (i.e. 0-1 scale). Default is FALSE.}
+\item{ratio}{Logical. If TRUE, shows plot on the ratio scale relative to DMSO. Default is FALSE.}
+
+\item{precalculated_ratios}{Logical. If TRUE, response values are pre-calculated ratios. Default is FALSE.}
 
 \item{show_ic50}{Logical. If TRUE, adds vertical line and annotation for IC50.}
+
+\item{target_response}{Numeric. Target response level for IC50/EC50. Default = 0.5.}
 
 \item{drug_name}{Drug name for plotting data.}
 
 \item{protein_name}{Protein name for plot.}
 
-\item{x_lab}{Label for x-axis.}
+\item{x_lab}{Character. Label for x-axis. If NULL, uses default based on transform_x.}
 
-\item{y_lab}{Label for y-axis.}
+\item{y_lab}{Character. Label for y-axis. If NULL, uses default based on ratio/precalculated_ratios.}
 
-\item{title}{Title for the plot.}
+\item{title}{Character. Title for the plot. If NULL, auto-generates.}
 
-\item{ci}{Logical. Include IC50 95\% confidence interval bands if TRUE. Default is FALSE.}
+\item{ci}{List with ci_lower and ci_upper. Include IC50 confidence interval bands if provided. Default is NULL.}
 
 \item{legend}{Logical. Show legend if TRUE.}
 
 \item{theme_style}{ggplot2 theme name to apply (default = "classic").}
 
 \item{original_label}{Logical. If TRUE, replace x-axis tick labels with original dose labels.}
+
+\item{transform_x}{Logical. Whether doses were log-transformed. Default = TRUE.}
+
+\item{color_by}{Character. Column name to color points by. Default is NULL.}
+
+\item{original_data}{Data frame containing original data with grouping variables.}
 }
 \value{
 A ggplot object.
