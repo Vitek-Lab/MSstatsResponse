@@ -280,7 +280,7 @@ plotIsotonic = function(fit,
                           size = 2) +
       ggplot2::geom_line(data = fit_df,
                          ggplot2::aes(x = dose, y = y_pred),
-                         color = "orange", size = 1.2) +
+                         color = "orange", linewidth = 1.2) +
       ggplot2::labs(x = x_lab, y = y_lab, title = title, color = color_by)
   } else {
     # Default: black points, orange line
@@ -290,7 +290,7 @@ plotIsotonic = function(fit,
                           size = 2) +
       ggplot2::geom_line(data = fit_df,
                          ggplot2::aes(x = dose, y = y_pred, color = "Isotonic Regression Fit"),
-                         size = 1.2) +
+                         linewidth = 1.2) +
       ggplot2::scale_color_manual(name = NULL,
                                   values = c("Observed Data" = "black",
                                              "Isotonic Regression Fit" = "orange")) +

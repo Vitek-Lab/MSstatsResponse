@@ -1,13 +1,19 @@
-#' Calculate turnover ratios from MSstats FeatureLevelData
+#' Calculate turnover ratios from MSstats FeatureLevelData or ProteinLevelData
 #'
-#' @param feature_data Data frame from MSstats dataProcess()$FeatureLevelData
+#' @param feature_data Data frame from MSstats dataProcess(). Either FeatureLevelData
+#'   (default, columns PROTEIN/PEPTIDE/INTENSITY) or ProteinLevelData (columns
+#'   Protein/LogIntensities). For multi-replicate experiments pass ProteinLevelData
+#'   with is_log_intensity = TRUE; fall back to FeatureLevelData only when there
+#'   is a single replicate per condition.
 #' @param channel_col Character. Name of column containing Heavy/Light labels. Default = "LABEL"
 #' @param heavy_label Character. Value in channel_col indicating heavy channel. Default = "H"
 #' @param light_label Character. Value in channel_col indicating light channel. Default = "L"
 #' @param time_col Character. Column containing timepoint information. Default = "GROUP"
-#' @param peptide_col Character. Column containing peptide sequences. Default = "PEPTIDE"
+#' @param peptide_col Character. Column containing peptide sequences. For ProteinLevelData
+#'   set this to the protein column name (e.g. "Protein"). Default = "PEPTIDE"
 #' @param protein_col Character. Column containing protein identifiers. Default = "PROTEIN"
-#' @param intensity_col Character. Column with intensity values. Default = "INTENSITY"
+#' @param intensity_col Character. Column with intensity values. Default = "INTENSITY".
+#'   For ProteinLevelData use "LogIntensities" together with is_log_intensity = TRUE.
 #' @param run_col Character. Column identifying technical replicates. Default = "RUN"
 #' @param peptide_selector Optional function to select peptides.
 #'   Function should take a data frame (grouped by protein) and return filtered data frame.
@@ -17,8 +23,13 @@
 #' @param normalize_tracer Logical. If TRUE, normalize by tracer incorporation. Default = FALSE
 #' @param tracer_constants Named numeric vector. Tracer constants for each timepoint.
 #'   Required if normalize_tracer = TRUE
+#' @param is_log_intensity Logical. If TRUE, back-transforms intensities from log scale
+#'   (log_base^intensity) before computing H/(H+L) ratios. Use with ProteinLevelData
+#'   whose LogIntensities column is on a log2 scale. Default = FALSE.
+#' @param log_base Numeric. Base for back-transformation when is_log_intensity = TRUE.
+#'   Default = 2 (log2).
 #'
-#' @return Data frame with columns: Protein, BaseSequence, TimeVal, Run, Heavy, Light, Total, H_frac, L_frac
+#' @return Data frame with columns: Protein, BaseSequence, GROUP, TimeVal, Run, Heavy, Light, Total, H_frac, L_frac
 #'
 #' @examples
 #' # Basic usage - all proteins, all peptides
@@ -77,7 +88,9 @@ calculateTurnoverRatios <- function(
     peptide_selector = NULL,
     agg_function = max,
     normalize_tracer = FALSE,
-    tracer_constants = NULL
+    tracer_constants = NULL,
+    is_log_intensity = FALSE,
+    log_base = 2
 ) {
 
   # Check required columns
@@ -93,6 +106,7 @@ calculateTurnoverRatios <- function(
       Protein = .data[[protein_col]],
       BaseSequence = str_remove_all(.data[[peptide_col]], "\\[.*?\\]"),
       Label = .data[[channel_col]],
+      GROUP = as.character(.data[[time_col]]),
       TimeVal = parse_timepoint(.data[[time_col]]),
       Intensity = .data[[intensity_col]],
       Run = .data[[run_col]]
@@ -103,6 +117,11 @@ calculateTurnoverRatios <- function(
   if (nrow(df) == 0) {
     warning("No data found matching Heavy/Light labels")
     return(data.frame())
+  }
+
+  # Back-transform log-scale intensities to linear before computing H/(H+L)
+  if (is_log_intensity) {
+    df <- df %>% mutate(Intensity = log_base^Intensity)
   }
 
   # Apply optional peptide selector per protein
@@ -116,12 +135,16 @@ calculateTurnoverRatios <- function(
   # Aggregate duplicates (multiple features/transitions for same peptide)
   # This can happen when there are multiple charge states or modifications
   df <- df %>%
-    group_by(Protein, BaseSequence, TimeVal, Run, Label) %>%
-    summarise(Intensity = agg_function(Intensity, na.rm = TRUE), .groups = "drop")
+    group_by(Protein, BaseSequence, GROUP, TimeVal, Run, Label) %>%
+    summarise(
+      Intensity = suppressWarnings(agg_function(Intensity, na.rm = TRUE)),
+      .groups = "drop"
+    ) %>%
+    mutate(Intensity = ifelse(is.infinite(Intensity), NA_real_, Intensity))
 
   # Pivot to wide format (keep replicates separate)
   df_wide <- df %>%
-    select(Protein, BaseSequence, TimeVal, Run, Label, Intensity) %>%
+    select(Protein, BaseSequence, GROUP, TimeVal, Run, Label, Intensity) %>%
     pivot_wider(names_from = Label, values_from = Intensity)
 
   # Rename heavy/light columns if they're not "Heavy" and "Light"
@@ -133,7 +156,7 @@ calculateTurnoverRatios <- function(
   }
 
   df_wide <- df_wide %>%
-    filter(!is.na(Heavy) & !is.na(Light)) %>%
+    filter(!is.na(Heavy) & !is.na(Light) & is.finite(Heavy) & is.finite(Light)) %>%
     mutate(
       Total = Heavy + Light,
       H_frac = Heavy / Total,
