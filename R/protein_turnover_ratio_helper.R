@@ -21,6 +21,7 @@
 #' @return Data frame with columns: Protein, BaseSequence, TimeVal, Run, Heavy, Light, Total, H_frac, L_frac
 #'
 #' @examples
+#' \dontrun{
 #' # Basic usage - all proteins, all peptides
 #' ratios <- calculateTurnoverRatios(
 #'   feature_data = quant_data$FeatureLevelData
@@ -59,6 +60,7 @@
 #'
 #' # Filter for specific protein after calculation
 #' protein_ratios <- ratios %>% filter(Protein == "A0A2K5TXF6")
+#' }
 #'
 #' @export
 #' @importFrom dplyr filter mutate group_by summarise arrange slice_head pull ungroup select rename
@@ -205,6 +207,7 @@ parse_timepoint <- function(time_strings) {
 #'   - weight: Combined quality weight (product of all components)
 #'
 #' @examples
+#' \dontrun{
 #' # Calculate ratios first
 #' ratios <- calculateTurnoverRatios(feature_data)
 #'
@@ -226,6 +229,7 @@ parse_timepoint <- function(time_strings) {
 #'
 #' # Use stricter validity threshold
 #' ratios_weighted_strict <- calculatePeptideWeights(ratios, validity_threshold = 1.0)
+#' }
 #'
 #' @export
 #' @importFrom dplyr group_by mutate ungroup across all_of

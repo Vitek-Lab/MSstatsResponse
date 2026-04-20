@@ -58,6 +58,7 @@ Data frame with columns: Protein, BaseSequence, TimeVal, Run, Heavy, Light, Tota
 Calculate turnover ratios from MSstats FeatureLevelData
 }
 \examples{
+\dontrun{
 # Basic usage - all proteins, all peptides
 ratios <- calculateTurnoverRatios(
   feature_data = quant_data$FeatureLevelData
@@ -96,5 +97,6 @@ ratios_norm <- calculateTurnoverRatios(
 
 # Filter for specific protein after calculation
 protein_ratios <- ratios \%>\% filter(Protein == "A0A2K5TXF6")
+}
 
 }

@@ -48,6 +48,7 @@ Calculates weights based on coverage, signal intensity, monotonicity, and data v
 Designed for protein turnover data but applicable to any dose/time-response data.
 }
 \examples{
+\dontrun{
 # Calculate ratios first
 ratios <- calculateTurnoverRatios(feature_data)
 
@@ -69,5 +70,6 @@ result <- doseResponseFit(
 
 # Use stricter validity threshold
 ratios_weighted_strict <- calculatePeptideWeights(ratios, validity_threshold = 1.0)
+}
 
 }
