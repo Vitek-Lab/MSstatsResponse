@@ -108,6 +108,7 @@ plot2 <- visualizeResponseProtein(
 print(plot2)
 
 # Example 3: Color points by replicate
+\dontrun{
 plot3 <- visualizeResponseProtein(
   data = prepared_data,
   protein_name = "PROTEIN_A",
@@ -117,5 +118,6 @@ plot3 <- visualizeResponseProtein(
   color_by = "replicate"
 )
 print(plot3)
+}
 
 }
