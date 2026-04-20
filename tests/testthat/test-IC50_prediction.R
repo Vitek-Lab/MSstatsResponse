@@ -196,7 +196,7 @@ test_that(".calcSingleIC50 handles single protein-drug pair", {
   )
 
   expect_s3_class(result, "data.frame")
-  expect_named(result, c("protein", "drug", "IC50", "IC50_lower_bound", "IC50_upper_bound"))
+  expect_named(result, c("protein", "drug", "IC50", "IC50_lower_bound", "IC50_upper_bound", "direction"))
   expect_equal(result$protein, "TestProtein")
   expect_equal(result$drug, "TestDrug")
 })
