@@ -165,7 +165,7 @@ calculateTurnoverRatios <- function(
 #' @return Numeric vector of hours
 #'
 #' @examples
-#' parse_timepoint(c("0hr", "1hr", "12hrs", "168hrs"))
+#' MSstatsResponse:::parse_timepoint(c("0hr", "1hr", "12hrs", "168hrs"))
 #' # Returns: 0 1 12 168
 #'
 #' @keywords internal
