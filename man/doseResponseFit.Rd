@@ -94,7 +94,6 @@ interaction_results_precalc <- doseResponseFit(
   precalculated_ratios = TRUE
 )
 
-
 \dontrun{
 # Example 4: Full dataset analysis
 full_results <- doseResponseFit(

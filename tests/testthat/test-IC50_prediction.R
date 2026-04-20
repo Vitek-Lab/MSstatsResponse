@@ -191,11 +191,12 @@ test_that(".calcSingleIC50 handles single protein-drug pair", {
     bootstrap = FALSE,
     prot = "TestProtein",
     drug_type = "TestDrug",
-    target_response = 0.5
+    target_response = 0.5,
+    precalculated_ratios = FALSE
   )
 
   expect_s3_class(result, "data.frame")
-  expect_named(result, c("protein", "drug", "IC50", "IC50_lower_bound", "IC50_upper_bound"))
+  expect_named(result, c("protein", "drug", "IC50", "IC50_lower_bound", "IC50_upper_bound", "direction"))
   expect_equal(result$protein, "TestProtein")
   expect_equal(result$drug, "TestDrug")
 })
@@ -217,7 +218,8 @@ test_that(".calcSingleIC50 handles bootstrap option", {
     bootstrap = FALSE,
     prot = "P1",
     drug_type = "D1",
-    target_response = 0.5
+    target_response = 0.5,
+    precalculated_ratios = FALSE
   )
 
   expect_true(is.na(result_no_boot$IC50_lower_bound))
@@ -234,7 +236,8 @@ test_that(".calcSingleIC50 handles bootstrap option", {
     bootstrap = TRUE,
     prot = "P1",
     drug_type = "D1",
-    target_response = 0.5
+    target_response = 0.5,
+    precalculated_ratios = FALSE
   )
 
   expect_false(is.na(result_boot$IC50_lower_bound))
@@ -257,7 +260,8 @@ test_that(".calcSingleIC50 handles ratio vs log scale", {
     bootstrap = FALSE,
     prot = "P1",
     drug_type = "D1",
-    target_response = 0.5
+    target_response = 0.5,
+    precalculated_ratios = FALSE
   )
 
   result_log <- .calcSingleIC50(
@@ -270,7 +274,8 @@ test_that(".calcSingleIC50 handles ratio vs log scale", {
     bootstrap = FALSE,
     prot = "P1",
     drug_type = "D1",
-    target_response = 0.5
+    target_response = 0.5,
+    precalculated_ratios = FALSE
   )
 
   # Results should be different
@@ -295,7 +300,8 @@ test_that(".calcSingleIC50 handles failed fits", {
     bootstrap = FALSE,
     prot = "P1",
     drug_type = "D1",
-    target_response = 0.5
+    target_response = 0.5,
+    precalculated_ratios = FALSE
   )
   })
 

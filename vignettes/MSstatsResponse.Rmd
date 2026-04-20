@@ -162,7 +162,7 @@ dia_prepared <- MSstatsPrepareDoseResponseFit(
   drug_column = "drug",
   protein_column = "Protein",
   log_abundance_column = "LogIntensities",
-  transform_nM_to_M = TRUE  
+  transform_nM_to_M = FALSE  
 )
 
 # Examine prepared data structure
