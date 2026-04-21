@@ -180,10 +180,10 @@ doseResponseFit = function(data, weights = NULL,
             on_ratio_scale_fit = ratio_response || precalculated_ratios
 
             if (on_ratio_scale_fit) {
-              log2FC_dec = log2(max(fit_dec$y_pred, na.rm = TRUE) / max(min(fit_dec$y_pred, na.rm = TRUE), 1e-10))
+              log2FC_dec = log2(min(fit_dec$y_pred, na.rm = TRUE) / max(max(fit_dec$y_pred, na.rm = TRUE), 1e-10))
               log2FC_inc = log2(max(fit_inc$y_pred, na.rm = TRUE) / max(min(fit_inc$y_pred, na.rm = TRUE), 1e-10))
             } else {
-              log2FC_dec = max(fit_dec$y_pred, na.rm = TRUE) - min(fit_dec$y_pred, na.rm = TRUE)
+              log2FC_dec = min(fit_dec$y_pred, na.rm = TRUE) - max(fit_dec$y_pred, na.rm = TRUE)
               log2FC_inc = max(fit_inc$y_pred, na.rm = TRUE) - min(fit_inc$y_pred, na.rm = TRUE)
             }
 
@@ -214,9 +214,17 @@ doseResponseFit = function(data, weights = NULL,
             on_ratio_scale_fit = ratio_response || precalculated_ratios
 
             if (on_ratio_scale_fit) {
-              results_temp$log2FC = log2(max(fit$y_pred, na.rm = TRUE) / max(min(fit$y_pred, na.rm = TRUE), 1e-10))
+              if (chosen_direction == "decreasing") {
+                results_temp$log2FC = log2(min(fit$y_pred, na.rm = TRUE) / max(max(fit$y_pred, na.rm = TRUE), 1e-10))
+              } else {
+                results_temp$log2FC = log2(max(fit$y_pred, na.rm = TRUE) / max(min(fit$y_pred, na.rm = TRUE), 1e-10))
+              }
             } else {
-              results_temp$log2FC = max(fit$y_pred, na.rm = TRUE) - min(fit$y_pred, na.rm = TRUE)
+              if (chosen_direction == "decreasing") {
+                results_temp$log2FC = min(fit$y_pred, na.rm = TRUE) - max(fit$y_pred, na.rm = TRUE)
+              } else {
+                results_temp$log2FC = max(fit$y_pred, na.rm = TRUE) - min(fit$y_pred, na.rm = TRUE)
+              }
             }
 
             results_temp = results_temp[, c("Protein", "drug", "direction",
