@@ -1,6 +1,6 @@
 ---
 title: "MSstatsResponse: A package for detecting drug-protein interactions in dose-response mass spectrometry-based proteomics experiments"
-author: "Sarah Szvetecz (szvetecz.s@northeastern.edu), Devon Kohler (kohler.d@northeastern.edu), Olga Vitek (o.vitek@northeastern.edu)"
+author: "Sarah Szvetecz (szvetecz.s@northeastern.edu), Devon Kohler (kohler.d@northeastern.edu), Tony Wu (wu.anthon@northeastern.edu), Swaraj Chandrakant Patil (patil.swaraj@northeastern.edu), Olga Vitek (o.vitek@northeastern.edu)"
 date: "`r Sys.Date()`"
 output:
   BiocStyle::html_document:
@@ -10,8 +10,8 @@ vignette: >
   %\VignetteIndexEntry{MSstatsResponse User Guide}
   %\VignetteEncoding{UTF-8}
   %\VignetteEngine{knitr::rmarkdown}
-editor_options: 
-  markdown: 
+editor_options:
+  markdown:
     wrap: sentence
 ---
 
@@ -22,36 +22,35 @@ knitr::opts_chunk$set(
   fig.width = 7,
   fig.height = 5
 )
-
 ```
 
 ## Introduction
 
-MSstatsResponse provides statistical tools for detecting drug-protein interactions and estimating IC50 values from dose-response mass spectrometry-based proteomics experiments. The package implements isotonic regression models to detect monotonic dose-response relationships and provides robust statistical inference through F-tests and bootstrap confidence intervals.
+MSstatsResponse provides statistical tools for detecting drug-protein interactions and estimating IC50 values from dose-response mass spectrometry-based proteomics experiments.
+The package implements isotonic regression models to detect monotonic dose-response relationships and provides robust statistical inference through F-tests and bootstrap confidence intervals.
 
 MSstatsResponse is designed to work seamlessly with summarized data from MSstats and MSstatsTMT workflows, but can also process other dose-response proteomics datasets that include protein-level quantifications across drug treatments.
 
 ### Statistical framework
 
-The package employs isotonic regression, a non-parametric method that fits monotonic functions without assuming a specific functional form. This approach is particularly suitable for dose-response data where monotonicity (increasing or decreasing trend) is expected.
+The package employs isotonic regression, a non-parametric method that fits monotonic functions without assuming a specific functional form.
+This approach is particularly suitable for dose-response data where monotonicity (increasing or decreasing trend) is expected.
 
 ### Analysis workflow
 
-MSstatsResponse implements a three-step statistical analysis pipeline:
+MSstatsResponse implements the following statistical analysis pipeline:
 
-0. **Data preparation**: `MSstatsPrepareDoseResponseFit()` - Convert input data to standardized format
-1. **Interaction detection**: `doseResponseFit()` - Detect drug-protein interactions using isotonic regression and F-tests  
-2. **IC50 estimation**: `predictIC50()` - Estimate IC50 values with bootstrap confidence intervals
-3. **Power analysis for experimental planning**: `futureExperimentSimulation` - Simulate dose-response experiments to determine optimal study designs and predict true-positive and false-positive rates
-
- 
+1. **Data preparation**: `MSstatsPrepareDoseResponseFit()` - Convert input data to standardized format
+2. **Interaction detection**: `doseResponseFit()` - Detect drug-protein interactions using isotonic regression and F-tests
+3. **IC50 estimation**: `predictIC50()` - Estimate IC50 values with bootstrap confidence intervals
+4. **Experimental design planning**: `futureExperimentSimulation()` and `run_tpr_simulation()` - Simulate dose-response experiments to determine optimal study designs
 
 ## Installation and setup
+
 
 ### Install MSstatsResponse
 
 ```{r install, eval=FALSE}
-# Install from Bioconductor
 if (!requireNamespace("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
 
@@ -63,7 +62,6 @@ BiocManager::install("MSstatsResponse")
 ```{r load_libraries, message=FALSE}
 library(MSstatsResponse)
 library(dplyr)
-library(tidyverse)
 library(ggplot2)
 library(data.table)
 
@@ -72,14 +70,13 @@ library(data.table)
 # library(MSstatsTMT)
 ```
 
- 
-
 ## Data preprocessing with MSstats
+
 If analyzing a mass spectrometry-based proteomics dataset, data should be preprocessed using the standard MSstats workflow for cleaning, normalization, and protein summarization prior to analysis with MSstatsResponse.
 
-When using MSstats, data can be converted with one of the available converter functions (e.g., SpectronauttoMSstatsFormat()) and subsequently processed with dataProcess().
+When using MSstats, data can be converted with one of the available converter functions (e.g., `SpectronauttoMSstatsFormat()`) and subsequently processed with `dataProcess()`.
 
-For MSstatsTMT, converter functions (e.g., MaxQtoMSstatsTMTFormat()) may be used, followed by proteinSummarization() for data processing.
+For MSstatsTMT, converter functions (e.g., `MaxQtoMSstatsTMTFormat()`) may be used, followed by `proteinSummarization()` for data processing.
 
 Please refer to the MSstats and MSstatsTMT Bioconductor vignettes for a comprehensive list of supported converters and detailed preprocessing recommendations.
 
@@ -95,9 +92,9 @@ msstats_data <- SpectronauttoMSstatsFormat(raw_data)
 # Process data: normalization and protein summarization
 processed_data <- dataProcess(
   msstats_data,
-  normalization = "equalizeMedians",  # or FALSE for no normalization
-  summaryMethod = "TMP",              # Tukey's median polish
-  MBimpute = TRUE,                     # Impute missing values
+  normalization = "equalizeMedians",
+  summaryMethod = "TMP",
+  MBimpute = TRUE,
   maxQuantileforCensored = 0.999
 )
 
@@ -107,18 +104,15 @@ protein_level_data <- processed_data$ProteinLevelData
 
 ### Loading example data
 
-For this vignette, we'll use pre-processed data prepared following the steps described above. For more information on preprocessing mass spectrometry–based proteomics experiments, see the vignettes for MSstats and/or MSstatsTMT.
+For this vignette, we use pre-processed data prepared following the steps described above.
+For more information on preprocessing mass spectrometry-based proteomics experiments, see the vignettes for MSstats and/or MSstatsTMT.
 
 ```{r load_example_data}
-# Load pre-processed DIA-MS data example from data/ (DIA_MSstats_Normalized.rda)
 data("DIA_MSstats_Normalized", package = "MSstatsResponse")
 dia_normalized <- DIA_MSstats_Normalized
 
-# Examine data structure
 str(dia_normalized$ProteinLevelData[1:5, ])
 ```
-
- 
 
 ## Data preparation for dose-response analysis
 
@@ -126,23 +120,20 @@ str(dia_normalized$ProteinLevelData[1:5, ])
 
 The `convertGroupToNumericDose()` function parses MSstats-style GROUP labels to extract drug names and numeric dose values.
 
-**Format expectations:**  
-- Control samples: `"DMSO"` (assigned dose = 0)  
-- Treatment samples: `"DrugName_ValueUnit"` (e.g., `"Drug1_003uM"`, `"Drug2_300nM"`) 
+**Format expectations:**
+
+- Control samples: `"DMSO"` (assigned dose = 0)
+- Treatment samples: `"DrugName_ValueUnit"` (e.g., `"Drug1_003uM"`, `"Drug2_300nM"`)
 
 ```{r convert_doses}
-# Convert GROUP labels to numeric doses
 dose_info <- convertGroupToNumericDose(dia_normalized$ProteinLevelData$GROUP)
 
-# Add dose and drug information to the dataset
 dia_normalized$ProteinLevelData <- dia_normalized$ProteinLevelData %>%
   mutate(
-    dose_nM = dose_info$dose_nM,  # Dose in nanomolar
-    drug = dose_info$drug          # Drug name
+    dose_nM = dose_info$dose_nM,
+    drug = dose_info$drug
   )
 
-
-# View converted data
 dia_normalized$ProteinLevelData %>%
   select(Protein, GROUP, drug, dose_nM) %>%
   head(10)
@@ -150,88 +141,72 @@ dia_normalized$ProteinLevelData %>%
 
 ### Formatting data with MSstatsPrepareDoseResponseFit()
 
-This function standardizes the data structure for downstream analysis. Users can either use pre-processed data as shown above (e.g., dia_normalized$ProteinLevelData) or begin at this step with their own datasets. It is important to ensure that column names are correctly matched to the expected ones when using MSstatsPrepareDoseResponseFit().
-  
-The dose_column corresponds to the values on the x-axis (e.g., dose, concentration, time, or temperature). The protein_column should contain unique identifiers (e.g., protein, gene, or peptide sequence), and the log_abundance_column represents the response values on the y-axis (e.g., log intensity, expression, or growth).
+This function standardizes the data structure for downstream analysis.
+The `dose_column` corresponds to the x-axis values (e.g., dose, concentration, time, or temperature), the `protein_column` should contain unique identifiers (e.g., protein, gene, or peptide sequence), and the `log_abundance_column` represents the response values on the y-axis (e.g., log intensity, expression, or growth).
 
 ```{r prepare_data}
-# Prepare data for dose-response fitting
 dia_prepared <- MSstatsPrepareDoseResponseFit(
   data = dia_normalized$ProteinLevelData,
   dose_column = "dose_nM",
   drug_column = "drug",
   protein_column = "Protein",
   log_abundance_column = "LogIntensities",
-  transform_nM_to_M = FALSE  
+  transform_nM_to_M = TRUE
 )
 
-# Examine prepared data structure
 str(dia_prepared)
 
-# View sample of prepared data
 dia_prepared %>%
   filter(protein %in% c("PROTEIN_A", "PROTEIN_B")) %>%
   arrange(protein, drug, dose) %>%
   head(20)
 ```
 
- 
-
 ## Drug-protein interaction detection
 
-### Isotonic Regression
+### Isotonic regression
 
-Isotonic regression fits a monotonic function to the data without assuming a parametric form. For this example, we have drug inhibitor dose-response data. When treated with inhibitors we typically expect:  
-
-- **Non-increasing response**: Drug binding reduces protein abundance  
-- **Monotonic constraint**: Response doesn't increase with dose
+Isotonic regression fits a monotonic function to the data without assuming a parametric form.
+For inhibitor data, we typically expect a non-increasing response: drug binding reduces protein abundance monotonically with dose.
 
 ### Running doseResponseFit()
 
-The `doseResponseFit()` function:  
-1. Fits isotonic regression for each protein-drug pair  
-2. Performs F-test comparing the fitted model to a flat (null) model  
-3. Adjusts p-values for multiple testing using Benjamini-Hochberg procedure  
+The `doseResponseFit()` function:
 
+1. Fits isotonic regression for each protein-drug pair
+2. Performs an F-test comparing the fitted model to a flat (null) model
+3. Adjusts p-values for multiple testing using the Benjamini-Hochberg procedure
 
 ```{r fit_dose_response, message=FALSE, warning=FALSE}
-# Detect drug-protein interactions
 response_results <- doseResponseFit(
   data = dia_prepared,
-  increasing = FALSE,        # Expect decreasing response
-  transform_dose = TRUE,     # Apply log10(dose + 1) transformation
-  ratio_response = FALSE     # Stay on log2 scale for testing
+  increasing = FALSE,
+  transform_dose = TRUE,
+  ratio_response = FALSE
 )
 
-# Examine results
 response_results %>%
-  select(protein, drug, F_statistic, P_value, adj.pvalue) %>%
+  select(Protein, drug, F_statistic, log2FC, adj.pvalue) %>%
   arrange(adj.pvalue) %>%
   head(10)
 ```
 
 ### Interpreting results
 
-- **F_statistic**: Ratio of between-dose to within-dose variance  
+- **F_statistic**: Ratio of between-dose to within-dose variance
+- **P_value**: Raw p-value from F-test
+- **adj.pvalue**: FDR-adjusted p-value (Benjamini-Hochberg)
 
-- **P_value**: Raw p-value from F-test  
-
-- **adj.pvalue**: FDR-adjusted p-value (Benjamini-Hochberg)  
-
-
-Proteins with `adj.pvalue < 0.05` show significant dose-dependent responses.  
-
+Proteins with `adj.pvalue < 0.05` show significant dose-dependent responses.
 
 ```{r summarize_results}
-# Count significant interactions
 n_total <- nrow(response_results)
 n_significant <- sum(response_results$adj.pvalue < 0.05)
 
 cat("Total protein-drug pairs tested:", n_total, "\n")
 cat("Significant interactions (FDR < 0.05):", n_significant, "\n")
-cat("Percentage significant:", round(100 * n_significant/n_total, 1), "%\n")
+cat("Percentage significant:", round(100 * n_significant / n_total, 1), "%\n")
 
-# Top hits
 top_hits <- response_results %>%
   filter(adj.pvalue < 0.05) %>%
   arrange(adj.pvalue) %>%
@@ -240,48 +215,40 @@ top_hits <- response_results %>%
 print(top_hits)
 ```
 
- 
-
 ## IC50 estimation
 
 ### Understanding IC50 calculation
 
-IC50 represents the dose at which the response is reduced to 50% of the control (DMSO) level. MSstatsResponse estimates IC50 by:  
+IC50 represents the dose at which the response is reduced to 50% of the control (DMSO) level.
+MSstatsResponse estimates IC50 by:
 
-1. Fitting isotonic regression on the ratio scale (response relative to DMSO)  
-
-2. Finding the dose where fitted response = 0.5  
-
-3. Computing confidence intervals via bootstrap resampling  
-
+1. Fitting isotonic regression on the ratio scale (response relative to DMSO)
+2. Finding the dose where the fitted response equals 0.5
+3. Computing confidence intervals via bootstrap resampling
 
 ### Running predictIC50()
 
 ```{r predict_ic50, message=FALSE, warning=FALSE}
-# Estimate IC50 with bootstrap confidence intervals
 ic50_predictions <- predictIC50(
   data = dia_prepared,
-  ratio_response = TRUE,     # Use ratio scale for IC50
-  transform_dose = TRUE,     # Log-transform doses
-  increasing = FALSE,        # Decreasing response expected
-  bootstrap = TRUE,          # Compute confidence intervals
-  n_samples = 1000,         # Number of bootstrap samples
-  alpha = 0.10              # 90% confidence intervals
+  ratio_response = TRUE,
+  transform_dose = TRUE,
+  increasing = FALSE,
+  bootstrap = TRUE,
+  n_samples = 1000,
+  alpha = 0.10
 )
 
-# View IC50 estimates
 ic50_predictions %>%
   arrange(IC50) %>%
   head(10)
 ```
 
-
 ### Parallel processing for large datasets
 
-For datasets with many proteins, use parallel processing:
+For datasets with many proteins, use parallel processing via BiocParallel:
 
 ```{r parallel_ic50, eval=FALSE}
-# Register a BiocParallel backend
 library(BiocParallel)
 if (.Platform$OS.type == "windows") {
   register(SnowParam(workers = 4, type = "SOCK"))
@@ -289,28 +256,24 @@ if (.Platform$OS.type == "windows") {
   register(MulticoreParam(workers = 4))
 }
 
-# Parallel IC50 estimation (faster for large datasets)
 ic50_parallel <- predictIC50(
   data = dia_prepared,
   ratio_response = TRUE,
   transform_dose = TRUE,
   bootstrap = TRUE,
   n_samples = 1000,
-  BPPARAM = bpparam()  # use 4 CPU cores defined above
+  BPPARAM = bpparam()
 )
-
 ```
 
- 
 
 ## Visualization
 
 ### Individual protein dose-response curves
 
-The `visualizeResponseProtein()` function creates publication-quality dose-response plots:
+The `visualizeResponseProtein()` function creates dose-response plots:
 
 ```{r visualize_single, fig.height=5, fig.width=7}
-# Visualize strong responder
 visualizeResponseProtein(
   data = dia_prepared,
   protein_name = "PROTEIN_A",
@@ -321,11 +284,9 @@ visualizeResponseProtein(
   transform_dose = TRUE,
   n_samples = 1000
 )
- 
 ```
 
 ```{r visualize_another, fig.height=5, fig.width=7}
-# Visualize another target
 visualizeResponseProtein(
   data = dia_prepared,
   protein_name = "PROTEIN_B",
@@ -336,38 +297,36 @@ visualizeResponseProtein(
 )
 ```
 
-### Comparing log2 vs ratio scale visualization
+### Comparing log2 vs ratio scale
 
 ```{r compare_scales, fig.height=4, fig.width=12}
-# Log2 scale (left panel)
 p1 <- visualizeResponseProtein(
   data = dia_prepared,
   protein_name = "PROTEIN_A",
   drug_name = "Drug1",
-  ratio_response = FALSE,  # Log2 scale
+  ratio_response = FALSE,
   show_ic50 = TRUE,
   add_ci = FALSE
 )
 
-# Ratio scale (right panel)  
 p2 <- visualizeResponseProtein(
   data = dia_prepared,
   protein_name = "PROTEIN_A",
   drug_name = "Drug1",
-  ratio_response = TRUE,   # Ratio scale
+  ratio_response = TRUE,
   show_ic50 = TRUE,
   add_ci = FALSE
 )
 
-# Combine plots (requires gridExtra)
- gridExtra::grid.arrange(p1, p2, ncol = 2)
+gridExtra::grid.arrange(p1, p2, ncol = 2)
 ```
-### Optional: use target_response argument to make predictions for any level
 
-In this example we predict IC25 and generate confidence intervals. Default is 0.50.
+### Predicting at other response levels
 
-```{r visualize_raw_scale, fig.height=5, fig.width=7}
-# Visualize another target
+The `target_response` argument allows prediction at any response level (default 0.50).
+This example predicts IC25 with confidence intervals:
+
+```{r visualize_ic25, fig.height=5, fig.width=7}
 visualizeResponseProtein(
   data = dia_prepared,
   protein_name = "PROTEIN_B",
@@ -375,7 +334,7 @@ visualizeResponseProtein(
   ratio_response = TRUE,
   show_ic50 = TRUE,
   add_ci = TRUE,
-  transform_dose = TRUE, 
+  transform_dose = TRUE,
   target_response = 0.25
 )
 ```
@@ -384,34 +343,51 @@ visualizeResponseProtein(
 
 ### Simulating future experiments
 
-The `futureExperimentSimulation()` function helps optimize experimental design by simulating performance under different conditions:
+`futureExperimentSimulation()` evaluates detection performance under a user-defined experimental design by simulating a full experiment and measuring true-positive and false-positive rates.
+Proteins from your own data can be used as templates for more realistic simulations.
 
-### Using your own data as templates
+```{r future_experiment}
+# pull unique doses 
+dose_levels = as.numeric(unique(dia_prepared$dose))
 
-You can use proteins from your own experimental data as templates for more realistic simulations. This approach leverages your validated hits to model expected performance:
-```{r}
-# First, identify proteins from your results to use as templates
-# Run simulation using your data as templates
-
+# run simulation
 custom_simulation <- futureExperimentSimulation(
-  N_proteins = 3000,
-  N_rep = 2,
+  N_proteins = 300,
+  N_rep = 3,
   N_Control_Rep = 3,
-  Concentrations = c(0, 1, 3, 10, 30, 100, 300, 1000, 3000),
-  data = dia_prepared,                          # Your data
-  strong_proteins = 'PROTEIN_B',                # User defined strong responder
-  weak_proteins = 'PROTEIN_A',                    # User defined weak responder 
-  no_interaction_proteins = 'PROTEIN_C',          # User defined negative control 
-  drug_name = "Drug1",                     # Specify which drug to model
+  Concentrations = dose_levels,
+  data = dia_prepared,
+  strong_proteins = "PROTEIN_B",
+  weak_proteins = "PROTEIN_A",
+  no_interaction_proteins = "PROTEIN_C",
+  drug_name = "Drug1",
   IC50_Prediction = FALSE
 )
 
-# Compare performance metrics
 print(custom_simulation$Hit_Rates_Plot)
-
-# Examine the templates that were extracted from your data
 print(custom_simulation$Template_Used)
 ```
+
+### Sweeping experimental design parameters
+
+`run_tpr_simulation()` sweeps over combinations of replicate counts and number of concentration levels, measuring the true positive rate (TPR) for each design configuration.
+Control (0) and the highest dose are always included; intermediate doses are selected by greedily choosing the concentration farthest from the log-median of the already-selected set.
+
+Use `plot_tpr_power_curve()` to visualize the resulting power curves.
+
+```{r tpr_power_curve, eval=TRUE}
+power_results <- run_tpr_simulation(
+  rep_range = c(2,4),
+  concentrations = dose_levels,
+  dose_range = c(2, 4),
+  data = dia_prepared,
+  protein = "PROTEIN_A",
+  n_proteins = 100
+)
+
+plot_tpr_power_curve(power_results)
+```
+
 
 
 ## Session information
@@ -420,11 +396,8 @@ print(custom_simulation$Template_Used)
 sessionInfo()
 ```
 
- 
-
 ## References
 
-1. Szvetecz, S., et al. (2025).MSstatsResponse: Semi-parametric statistical model enhances drug-protein interaction detection and IC50 estimation in chemoproteomics experiments. *Manuscript in preparation.*  
+1. Szvetecz, S., et al. (2025). MSstatsResponse: Semi-parametric statistical model enhances drug-protein interaction detection and IC50 estimation in chemoproteomics experiments. *Manuscript in preparation.*
 
 2. Choi, M., et al. (2014). MSstats: an R package for statistical analysis of quantitative mass spectrometry-based proteomic experiments. *Bioinformatics*, 30(17), 2524-2526.
-

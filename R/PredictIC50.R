@@ -117,7 +117,8 @@ predictIC50 = function(data,
                        precalculated_ratios = FALSE,
                        bootstrap = TRUE,
                        BPPARAM = bpparam(),
-                       target_response = NULL) {
+                       target_response = NULL,
+                       weights = NULL) {
 
   # Handle target_response
   if (is.null(target_response)) {
@@ -145,8 +146,9 @@ predictIC50 = function(data,
   # Process each combination
   test_results = BiocParallel::bplapply(seq_len(nrow(loop_list)), function(i) {
     temp = loop_list[i, ]
-    data_subset = data %>%
-      dplyr::filter(drug %in% c("DMSO", temp[[1]]) & protein == temp[[2]])
+    row_idx = which(data$drug %in% c("DMSO", temp[[1]]) & data$protein == temp[[2]])
+    data_subset = data[row_idx, ]
+    w_subset = if (!is.null(weights)) weights[row_idx] else NULL
 
     .calcSingleIC50(
       df = data_subset,
@@ -159,7 +161,8 @@ predictIC50 = function(data,
       bootstrap = bootstrap,
       prot = temp[[2]],
       drug_type = temp[[1]],
-      target_response = target_response
+      target_response = target_response,
+      weights = w_subset
     )
   }, BPPARAM = BPPARAM)
 

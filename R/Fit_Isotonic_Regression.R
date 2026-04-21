@@ -99,7 +99,7 @@ doseResponseFit = function(data, weights = NULL,
   # If no drugs to test, return empty data frame with correct structure
   if (length(drug_list) == 0) {
     return(data.frame(
-      protein = character(),
+      Protein = character(),
       drug = character(),
       SSE_Full = numeric(),
       SSE_Null = numeric(),
@@ -107,6 +107,7 @@ doseResponseFit = function(data, weights = NULL,
       P_value = numeric(),
       adj.pvalue = numeric(),
       direction = character(),
+      log2FC = numeric(),
       stringsAsFactors = FALSE
     ))
   }
@@ -164,16 +165,30 @@ doseResponseFit = function(data, weights = NULL,
 
             # Store both results temporarily for FDR correction
             results_dec = fit_dec$f_test
-            results_dec$protein = protein_list[i]
+            results_dec$Protein = protein_list[i]
             results_dec$drug = drug_type
             results_dec$direction = "decreasing"
             results_dec$F_statistic_alt = fit_inc$f_test$F_statistic  # Store alternative F for later comparison
 
             results_inc = fit_inc$f_test
-            results_inc$protein = protein_list[i]
+            results_inc$Protein = protein_list[i]
             results_inc$drug = drug_type
             results_inc$direction = "increasing"
             results_inc$F_statistic_alt = fit_dec$f_test$F_statistic
+
+            # Fitted max fold change: y_pred is on ratio scale if ratio_response=TRUE or precalculated_ratios=TRUE
+            on_ratio_scale_fit = ratio_response || precalculated_ratios
+
+            if (on_ratio_scale_fit) {
+              log2FC_dec = log2(max(fit_dec$y_pred, na.rm = TRUE) / max(min(fit_dec$y_pred, na.rm = TRUE), 1e-10))
+              log2FC_inc = log2(max(fit_inc$y_pred, na.rm = TRUE) / max(min(fit_inc$y_pred, na.rm = TRUE), 1e-10))
+            } else {
+              log2FC_dec = max(fit_dec$y_pred, na.rm = TRUE) - min(fit_dec$y_pred, na.rm = TRUE)
+              log2FC_inc = max(fit_inc$y_pred, na.rm = TRUE) - min(fit_inc$y_pred, na.rm = TRUE)
+            }
+
+            results_dec$log2FC = log2FC_dec
+            results_inc$log2FC = log2FC_inc
 
             # Add both to results list
             results_list[[length(results_list) + 1]] = results_dec
@@ -192,11 +207,20 @@ doseResponseFit = function(data, weights = NULL,
             chosen_direction = if(is.logical(increasing) && increasing) "increasing" else "decreasing"
 
             results_temp = fit$f_test
-            results_temp$protein = protein_list[i]
+            results_temp$Protein = protein_list[i]
             results_temp$drug = drug_type
             results_temp$direction = chosen_direction
-            results_temp = results_temp[, c("protein", "drug", "direction",
-                                            setdiff(names(results_temp), c("protein", "drug", "direction")))]
+
+            on_ratio_scale_fit = ratio_response || precalculated_ratios
+
+            if (on_ratio_scale_fit) {
+              results_temp$log2FC = log2(max(fit$y_pred, na.rm = TRUE) / max(min(fit$y_pred, na.rm = TRUE), 1e-10))
+            } else {
+              results_temp$log2FC = max(fit$y_pred, na.rm = TRUE) - min(fit$y_pred, na.rm = TRUE)
+            }
+
+            results_temp = results_temp[, c("Protein", "drug", "direction",
+                                            setdiff(names(results_temp), c("Protein", "drug", "direction")))]
             results_list[[i]] = results_temp
           }
           setTxtProgressBar(progress_bar, i)
@@ -229,11 +253,11 @@ doseResponseFit = function(data, weights = NULL,
         }
 
         # Now select the better direction for each protein
-        proteins_unique = unique(results_df$protein)
+        proteins_unique = unique(results_df$Protein)
         final_results = list()
 
         for (prot in proteins_unique) {
-          prot_rows = results_df[results_df$protein == prot, ]
+          prot_rows = results_df[results_df$Protein == prot, ]
 
           if (nrow(prot_rows) == 2) {
             # Compare F-statistics to select better fit
@@ -264,8 +288,8 @@ doseResponseFit = function(data, weights = NULL,
       }
 
       # Reorder columns to put direction after drug
-      results_df = results_df[, c("protein", "drug", "direction",
-                                  setdiff(names(results_df), c("protein", "drug", "direction")))]
+      results_df = results_df[, c("Protein", "drug", "direction",
+                                  setdiff(names(results_df), c("Protein", "drug", "direction")))]
       all_results[[drug_type]] = results_df
     }
   }

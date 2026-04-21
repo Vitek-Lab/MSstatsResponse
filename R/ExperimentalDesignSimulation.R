@@ -109,6 +109,12 @@ futureExperimentSimulation = function(N_proteins = 300,
       stop("When providing data, you must specify at least one of: strong_proteins, weak_proteins, or no_interaction_proteins")
     }
 
+    # Validate concentrations
+    valid_concentrations = as.numeric(unique(data$dose))
+    if (!all(Concentrations %in% valid_concentrations)) {
+      stop(paste("Error: `concentrations` must be a subset of :",valid_concentrations))
+     }
+
     # Create template from user-specified proteins
     template = .extractTemplatesFromData(
       data = data,
@@ -378,10 +384,10 @@ simulateChemoProteinLevelNonParametric = function(N_proteins = 3000,
   }
 
   # Validate concentrations
-  valid_concentrations = c(0, 1, 3, 10, 30, 100, 300, 1000, 3000)
-  if (!all(concentrations %in% valid_concentrations)) {
-    stop("Error: `concentrations` must be a subset of c(0, 1, 3, 10, 30, 100, 300, 1000, 3000).")
-  }
+  #valid_concentrations = c(0, 1, 3, 10, 30, 100, 300, 1000, 3000)
+  #if (!all(concentrations %in% valid_concentrations)) {
+  #  stop("Error: `concentrations` must be a subset of c(0, 1, 3, 10, 30, 100, 300, 1000, 3000).")
+ # }
 
   # Subset template data frames by concentrations
   subset_template = function(data, concentrations) {
@@ -501,22 +507,22 @@ plotHitRateMSstatsResponse = function(results, rep_count, concentration_count) {
 
   # Identify protein groups
   strong_proteins = dt %>%
-    dplyr::filter(grepl("strong", protein)) %>%
-    dplyr::pull(protein)
+    dplyr::filter(grepl("strong", Protein)) %>%
+    dplyr::pull(Protein)
 
   weak_proteins = dt %>%
-    dplyr::filter(grepl("weak", protein)) %>%
-    dplyr::pull(protein)
+    dplyr::filter(grepl("weak", Protein)) %>%
+    dplyr::pull(Protein)
 
   no_proteins = dt %>%
-    dplyr::filter(grepl("no", protein)) %>%
-    dplyr::pull(protein)
+    dplyr::filter(grepl("no", Protein)) %>%
+    dplyr::pull(Protein)
 
   # Function to calculate percentage passing per group
   calculate_percentage = function(group_proteins) {
     total = length(group_proteins)
     if (total == 0) return(NA_real_)
-    passed = sum(group_proteins %in% filtered_dt$protein)
+    passed = sum(group_proteins %in% filtered_dt$Protein)
     round((passed / total) * 100, 1)
   }
 

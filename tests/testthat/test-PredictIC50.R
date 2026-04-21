@@ -34,7 +34,7 @@ test_that("predictIC50 returns correct structure", {
   })
 
   expect_s3_class(results, "data.frame")
-  expect_named(results, c("protein", "drug", "IC50", "IC50_lower_bound", "IC50_upper_bound", "direction"))
+  expect_named(results, c("Protein", "drug", "IC50", "IC50_lower_bound", "IC50_upper_bound", "direction"))
   expect_equal(nrow(results), 3)  # 3 proteins
 })
 

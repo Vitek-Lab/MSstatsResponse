@@ -8,17 +8,20 @@
                            bootstrap,
                            prot,
                            drug_type,
-                           target_response){
+                           target_response,
+                           weights = NULL){
 
 
   x = df$dose
   y = df$response
+  w = if (is.null(weights)) rep(1, length(y)) else weights
 
-  # Check for DMSO presence (dose = 0)
-  if (!any(x == 0)) {
+  # Check for DMSO presence (dose = 0) — not required for pre-calculated ratios
+  # (e.g. protein turnover where timepoint 0 has no heavy signal and is filtered out)
+  if (!precalculated_ratios && !any(x == 0)) {
     warning(paste("No DMSO control for protein", prot, "and drug", drug_type))
     return(data.frame(
-      protein = prot,
+      Protein = prot,
       drug = drug_type,
       IC50 = NA,
       IC50_lower_bound = NA,
@@ -32,7 +35,7 @@
   if (nrow(df) < 2) {
     warning(paste("Insufficient data for protein", prot, "and drug", drug_type))
     return(data.frame(
-      protein = prot,
+      Protein = prot,
       drug = drug_type,
       IC50 = NA,
       IC50_lower_bound = NA,
@@ -46,26 +49,23 @@
   x = x[order_idx]
   y = y[order_idx]
 
-  # Calculate baseline for validation
-  if (precalculated_ratios) {
-    baseline = mean(y[x == 0], na.rm = TRUE)
-  } else {
+  # Calculate and validate baseline — only needed for non-precalculated data
+  # where the DMSO mean is used to adjust the target response
+  if (!precalculated_ratios) {
     y_unlog = 2^y
     baseline = mean(y_unlog[x == 0], na.rm = TRUE)
-  }
-
-  # Check if baseline is valid
-  if (is.na(baseline) || !is.finite(baseline)) {
-    warning(paste("Invalid baseline for protein", prot, "and drug", drug_type))
-    return(data.frame(
-      protein = prot,
-      drug = drug_type,
-      IC50 = NA,
-      IC50_lower_bound = NA,
-      IC50_upper_bound = NA,
-      direction = NA,
-      stringsAsFactors = FALSE
-    ))
+    if (is.na(baseline) || !is.finite(baseline)) {
+      warning(paste("Invalid baseline for protein", prot, "and drug", drug_type))
+      return(data.frame(
+        Protein = prot,
+        drug = drug_type,
+        IC50 = NA,
+        IC50_lower_bound = NA,
+        IC50_upper_bound = NA,
+        direction = NA,
+        stringsAsFactors = FALSE
+      ))
+    }
   }
 
   # Adjust target response based on data type
@@ -86,14 +86,14 @@
     # Handle "both" option
     if (is.character(increasing) && increasing == "both") {
       # Fit both directions
-      fit_dec = fitIsotonicRegression(x, y,
+      fit_dec = fitIsotonicRegression(x, y, w = w,
                                       increasing = FALSE,
                                       transform_x = transform_dose,
                                       ratio_y = ratio_response,
                                       precalculated_ratios = precalculated_ratios,
                                       test_significance = FALSE)
 
-      fit_inc = fitIsotonicRegression(x, y,
+      fit_inc = fitIsotonicRegression(x, y, w = w,
                                       increasing = TRUE,
                                       transform_x = transform_dose,
                                       ratio_y = ratio_response,
@@ -129,7 +129,7 @@
       }
     } else {
       # Original single-direction behavior
-      fit_try = fitIsotonicRegression(x, y,
+      fit_try = fitIsotonicRegression(x, y, w = w,
                                       increasing = increasing,
                                       transform_x = transform_dose,
                                       ratio_y = ratio_response,
@@ -148,7 +148,7 @@
 
   if (is.na(ic50_est)) {
     result = data.frame(
-      protein = prot,
+      Protein = prot,
       drug = drug_type,
       IC50 = NA,
       IC50_lower_bound = NA,
@@ -169,7 +169,8 @@
           n_samples = n_samples, alpha = alpha,
           increasing = increasing_final,
           target_response = adjusted_target_response,
-          transform_x = transform_dose
+          transform_x = transform_dose,
+          weights = w
         )
       } else if (ratio_response) {
         bootstrap_res = bootstrapIC50(
@@ -177,7 +178,8 @@
           n_samples = n_samples, alpha = alpha,
           increasing = increasing_final,
           target_response = target_response,
-          transform_x = transform_dose
+          transform_x = transform_dose,
+          weights = w
         )
       } else {
         bootstrap_res = bootstrapIC50LogScale(
@@ -185,7 +187,8 @@
           n_samples = n_samples, alpha = alpha,
           increasing = increasing_final,
           target_response = target_response,
-          transform_x = transform_dose
+          transform_x = transform_dose,
+          weights = w
         )
       }
       lower = as.numeric(bootstrap_res$ci_lower_transform)
@@ -195,7 +198,7 @@
       upper = NA
     }
     result = data.frame(
-      protein = prot,
+      Protein = prot,
       drug = drug_type,
       IC50 = ic50,
       IC50_lower_bound = lower,
@@ -258,9 +261,10 @@ PredictIC50 = function(fit, target_response = 0.5) {
 
 bootstrapIC50 = function(dose, response, n_samples = 1000, alpha = 0.10,
                          increasing = FALSE, target_response = 0.5,
-                         transform_x = TRUE) {
+                         transform_x = TRUE, weights = NULL) {
   ic50_vals = numeric(n_samples)
-  df = data.frame(dose = dose, response = response)
+  df = data.frame(dose = dose, response = response,
+                  weight = if (is.null(weights)) rep(1, length(dose)) else weights)
 
   for (i in seq_len(n_samples)) {
     boot_df = df %>%
@@ -270,9 +274,10 @@ bootstrapIC50 = function(dose, response, n_samples = 1000, alpha = 0.10,
 
     x_sample = boot_df$dose
     y_sample = boot_df$response
+    w_sample = boot_df$weight
 
     tryCatch({
-      fit_sample = fitIsotonicRegression(x_sample, y_sample,
+      fit_sample = fitIsotonicRegression(x_sample, y_sample, w = w_sample,
                                          increasing = increasing,
                                          transform_x = transform_x,
                                          ratio_y = TRUE,
@@ -324,9 +329,10 @@ bootstrapIC50 = function(dose, response, n_samples = 1000, alpha = 0.10,
 #' @importFrom dplyr filter select mutate group_by summarise arrange distinct
 bootstrapIC50LogScale = function(x, y, n_samples = 1000, alpha = 0.05,
                                  increasing = FALSE, target_response = 0.5,
-                                 transform_x = TRUE)  {
+                                 transform_x = TRUE, weights = NULL)  {
   ic50_vals = numeric(n_samples)
-  df = data.frame(dose = x, response = y)
+  df = data.frame(dose = x, response = y,
+                  weight = if (is.null(weights)) rep(1, length(x)) else weights)
 
   for (i in seq_len(n_samples)) {
     boot_df = df %>%
@@ -336,6 +342,7 @@ bootstrapIC50LogScale = function(x, y, n_samples = 1000, alpha = 0.05,
 
     x_sample = boot_df$dose
     y_sample = boot_df$response
+    w_sample = boot_df$weight
 
     dmso_idx = which(x_sample == 0)
     if (length(dmso_idx) == 0) {
@@ -347,7 +354,7 @@ bootstrapIC50LogScale = function(x, y, n_samples = 1000, alpha = 0.05,
     adjusted_target_response = mean_dmso + log2(target_response)
 
     tryCatch({
-      fit_sample = fitIsotonicRegression(x_sample, y_sample,
+      fit_sample = fitIsotonicRegression(x_sample, y_sample, w = w_sample,
                                          increasing = increasing,
                                          transform_x = transform_x,
                                          ratio_y = FALSE,
@@ -400,9 +407,10 @@ bootstrapIC50LogScale = function(x, y, n_samples = 1000, alpha = 0.05,
 #' @importFrom dplyr filter select mutate group_by summarise arrange distinct
 bootstrapIC50Precalculated = function(dose, response, n_samples = 1000, alpha = 0.10,
                                       increasing = FALSE, target_response = 0.5,
-                                      transform_x = TRUE) {
+                                      transform_x = TRUE, weights = NULL) {
   ic50_vals = numeric(n_samples)
-  df = data.frame(dose = dose, response = response)
+  df = data.frame(dose = dose, response = response,
+                  weight = if (is.null(weights)) rep(1, length(dose)) else weights)
 
   for (i in seq_len(n_samples)) {
     boot_df = df %>%
@@ -412,9 +420,10 @@ bootstrapIC50Precalculated = function(dose, response, n_samples = 1000, alpha = 
 
     x_sample = boot_df$dose
     y_sample = boot_df$response
+    w_sample = boot_df$weight
 
     tryCatch({
-      fit_sample = fitIsotonicRegression(x_sample, y_sample,
+      fit_sample = fitIsotonicRegression(x_sample, y_sample, w = w_sample,
                                          increasing = increasing,
                                          transform_x = transform_x,
                                          ratio_y = FALSE,

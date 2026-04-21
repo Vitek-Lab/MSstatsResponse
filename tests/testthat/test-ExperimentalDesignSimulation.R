@@ -55,7 +55,7 @@ test_that("futureExperimentSimulation uses custom templates from user data", {
   mock_data <- data.frame(
     protein = rep(c("P1", "P2", "P3"), each = 4),
     drug = rep(c("DMSO", "DMSO", "Drug1", "Drug1"), 3),
-    dose = rep(c(0, 0, 1e-9, 1e-6), 3),
+    dose = rep(c(0, 0, 1, 1000), 3),  # nM scale to match Concentrations
     response = c(20, 20, 18, 15,  # P1
                  21, 21, 20, 19,  # P2
                  19, 19, 19, 19)  # P3
@@ -169,21 +169,25 @@ test_that(".extractTemplatesFromData handles empty protein lists", {
 })
 
 
-test_that("simulateChemoProteinLevelNonParametric validates concentrations", {
+test_that("simulateChemoProteinLevelNonParametric subsets to matching concentrations", {
+  # Template only has dose = 0; concentrations c(0, 5, 15) includes non-matching
+  # values. The function silently subsets rather than erroring — verify it runs
+  # and returns only the matching dose.
   template <- list(
-    strong_interaction = data.frame(dose = 0, LogIntensities = 20),
-    weak_interaction = data.frame(dose = 0, LogIntensities = 20),
-    no_interaction = data.frame(dose = 0, LogIntensities = 20)
+    strong_interaction = data.frame(dose = 0, LogIntensities = 20, Intensity = 2^20, ratio = 1),
+    weak_interaction   = data.frame(dose = 0, LogIntensities = 20, Intensity = 2^20, ratio = 1),
+    no_interaction     = data.frame(dose = 0, LogIntensities = 20, Intensity = 2^20, ratio = 1)
   )
 
-  expect_error(
-    simulateChemoProteinLevelNonParametric(
-      N_proteins = 30,
-      concentrations = c(0, 5, 15),  # Invalid concentrations
-      template = template
-    ),
-    "must be a subset"
+  result <- simulateChemoProteinLevelNonParametric(
+    N_proteins     = 30,
+    concentrations = c(0, 5, 15),
+    template       = template,
+    outlier_prob   = 0
   )
+
+  expect_s3_class(result, "data.frame")
+  expect_true(all(result$dose == 0))  # Only dose = 0 was in the template
 })
 
 
@@ -225,7 +229,7 @@ test_that("simulateChemoProteinLevelNonParametric adds outliers", {
 test_that("plotHitRateMSstatsResponse calculates hit rates correctly", {
   # Create mock results with known outcomes
   mock_results <- data.frame(
-    protein = c(paste0("p_strong_interaction_", 1:10),
+    Protein = c(paste0("p_strong_interaction_", 1:10),
                 paste0("p_weak_interaction_", 1:10),
                 paste0("p_no_interaction_", 1:10)),
     drug = "Drug1",
@@ -249,7 +253,7 @@ test_that("plotHitRateMSstatsResponse calculates hit rates correctly", {
 test_that("plotHitRateMSstatsResponse handles empty groups", {
   # Results with no weak proteins
   mock_results <- data.frame(
-    protein = c(paste0("p_strong_interaction_", 1:5),
+    Protein = c(paste0("p_strong_interaction_", 1:5),
                 paste0("p_no_interaction_", 1:5)),
     drug = "Drug1",
     adj.pvalue = c(rep(0.01, 3), rep(0.1, 2),
@@ -263,4 +267,48 @@ test_that("plotHitRateMSstatsResponse handles empty groups", {
   )
 
   expect_true(is.na(plot_result$plot_data$Percent[2]))  # No weak proteins
+})
+
+test_that("futureExperimentSimulation achieves expected TPR/FPR with built-in data", {
+  # Prepare built-in DIA data the same way as the vignette
+  data("DIA_MSstats_Normalized", package = "MSstatsResponse")
+  dia_normalized <- DIA_MSstats_Normalized
+  dose_info <- convertGroupToNumericDose(dia_normalized$ProteinLevelData$GROUP)
+  dia_normalized$ProteinLevelData$dose_nM <- dose_info$dose_nM
+  dia_normalized$ProteinLevelData$drug    <- dose_info$drug
+
+  dia_prepared <- MSstatsPrepareDoseResponseFit(
+    data                 = dia_normalized$ProteinLevelData,
+    dose_column          = "dose_nM",
+    drug_column          = "drug",
+    protein_column       = "Protein",
+    log_abundance_column = "LogIntensities",
+    transform_nM_to_M    = TRUE
+  )
+
+  dose_levels <- as.numeric(unique(dia_prepared$dose))
+
+  set.seed(42)
+  custom_simulation <- futureExperimentSimulation(
+    N_proteins              = 300,
+    N_rep                   = 3,
+    N_Control_Rep           = 3,
+    Concentrations          = dose_levels,
+    data                    = dia_prepared,
+    strong_proteins         = "PROTEIN_B",
+    weak_proteins           = "PROTEIN_A",
+    no_interaction_proteins = "PROTEIN_C",
+    drug_name               = "Drug1",
+    IC50_Prediction         = FALSE
+  )
+
+  hit_rates <- custom_simulation$Hit_Rates_Data
+
+  tpr_strong <- hit_rates$Percent[hit_rates$Category == "TPR (Strong)"]
+  tpr_weak   <- hit_rates$Percent[hit_rates$Category == "TPR (Weak)"]
+  fpr        <- hit_rates$Percent[hit_rates$Category == "FPR"]
+
+  expect_gte(tpr_strong, 80)
+  expect_gte(tpr_weak,   80)
+  expect_lt(fpr,         10)
 })

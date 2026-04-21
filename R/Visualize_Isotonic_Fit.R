@@ -3,6 +3,8 @@
 #' @param data Protein-level dataset (e.g., output of MSstatsPrepareDoseResponseFit).
 #' @param protein_name Character. Protein name to plot.
 #' @param drug_name Character. Drug name to plot.
+#' @param weights Optional numeric vector of weights matching nrow(data). Default is NULL (equal weights).
+#' @param show_weights Logical. If TRUE and weights are provided, scale point size by weight. Default is FALSE.
 #' @param increasing Logical or character. If TRUE, fits a non-decreasing model. If FALSE, fits non-increasing.
 #'   If "both", fits both and selects better fit.
 #' @param ratio_response Logical. If TRUE, compute IC50 on ratio scale; if FALSE, use log2 intensities.
@@ -51,16 +53,15 @@
 #' )
 #' print(plot1)
 #'
-#' # Example 2: Add IC50 annotation with custom labels
+#' # Example 2: With weights (visualized as point size)
 #' plot2 <- visualizeResponseProtein(
 #'   data = prepared_data,
 #'   protein_name = "PROTEIN_A",
 #'   drug_name = "Drug1",
+#'   weights = prepared_data$weight,
+#'   show_weights = TRUE,
 #'   ratio_response = TRUE,
-#'   show_ic50 = TRUE,
-#'   x_lab = "Drug Concentration (M)",
-#'   y_lab = "Relative Protein Abundance",
-#'   title = "Drug Response for PROTEIN_A"
+#'   show_ic50 = TRUE
 #' )
 #' print(plot2)
 #'
@@ -81,6 +82,8 @@
 visualizeResponseProtein = function(data,
                                     protein_name,
                                     drug_name,
+                                    weights = NULL,
+                                    show_weights = FALSE,
                                     ratio_response = TRUE,
                                     precalculated_ratios = FALSE,
                                     transform_dose = TRUE,
@@ -97,34 +100,45 @@ visualizeResponseProtein = function(data,
   # Subset to single protein + drug (+ DMSO)
   data_single = data %>%
     dplyr::filter(protein == protein_name & drug %in% c("DMSO", drug_name))
-
+  
   x_org = data_single$dose
   y_org = data_single$response
-
+  
+  # Extract weights for this subset
+  if (!is.null(weights)) {
+    # Assume weights vector matches the full data
+    subset_idx = which(data$protein == protein_name & 
+                         data$drug %in% c("DMSO", drug_name))
+    w = weights[subset_idx]
+  } else {
+    w = rep(1, length(x_org))
+  }
+  
   order_idx = order(x_org)
   x = x_org[order_idx]
   y = y_org[order_idx]
-
+  w = w[order_idx]
+  
   # Handle "both" option by fitting and selecting better model
   if (is.character(increasing) && increasing == "both") {
     fit_dec = fitIsotonicRegression(
-      x = x, y = y,
+      x = x, y = y, w = w,
       increasing = FALSE,
       transform_x = transform_dose,
       ratio_y = ratio_response,
       precalculated_ratios = precalculated_ratios,
       test_significance = TRUE
     )
-
+    
     fit_inc = fitIsotonicRegression(
-      x = x, y = y,
+      x = x, y = y, w = w,
       increasing = TRUE,
       transform_x = transform_dose,
       ratio_y = ratio_response,
       precalculated_ratios = precalculated_ratios,
       test_significance = TRUE
     )
-
+    
     # Select better fit
     if (fit_dec$f_test$SSE_Full <= fit_inc$f_test$SSE_Full) {
       fit = fit_dec
@@ -136,7 +150,7 @@ visualizeResponseProtein = function(data,
   } else {
     # Fit isotonic model
     fit = fitIsotonicRegression(
-      x = x, y = y,
+      x = x, y = y, w = w,
       increasing = increasing,
       transform_x = transform_dose,
       ratio_y = ratio_response,
@@ -145,12 +159,13 @@ visualizeResponseProtein = function(data,
     )
     increasing_final = increasing
   }
-
+  
   # Optional: bootstrap CIs
   ci_bounds = NULL
   if (add_ci) {
     suppressWarnings({
       ic50_est = predictIC50(data_single,
+                             weights = w,  # Pass weights to IC50 calculation
                              ratio_response = ratio_response,
                              precalculated_ratios = precalculated_ratios,
                              transform_dose = transform_dose,
@@ -164,9 +179,11 @@ visualizeResponseProtein = function(data,
       ci_upper = ic50_est$IC50_upper_bound
     )
   }
-
+  
   p = plotIsotonic(
     fit = fit,
+    weights = w,
+    show_weights = show_weights,
     ratio = ratio_response,
     precalculated_ratios = precalculated_ratios,
     show_ic50 = show_ic50,
@@ -181,13 +198,15 @@ visualizeResponseProtein = function(data,
     color_by = color_by,
     original_data = data_single
   )
-
+  
   return(p)
 }
 
 #' Plot Isotonic Regression Model
 #'
 #' @param fit A model object returned by fitIsotonicRegression().
+#' @param weights Numeric vector of weights (same length as data points). Default is NULL.
+#' @param show_weights Logical. If TRUE and weights provided, scale point size by weight. Default is FALSE.
 #' @param ratio Logical. If TRUE, shows plot on the ratio scale relative to DMSO. Default is FALSE.
 #' @param precalculated_ratios Logical. If TRUE, response values are pre-calculated ratios. Default is FALSE.
 #' @param show_ic50 Logical. If TRUE, adds vertical line and annotation for IC50.
@@ -210,8 +229,10 @@ visualizeResponseProtein = function(data,
 #' @importFrom stats approx
 #' @importFrom ggplot2 ggplot aes geom_point geom_line geom_segment annotate
 #' @importFrom ggplot2 scale_color_manual scale_x_continuous labs ylim theme_minimal
-#' @importFrom ggplot2 theme element_rect element_blank element_text
+#' @importFrom ggplot2 theme element_rect element_blank element_text scale_size_continuous
 plotIsotonic = function(fit,
+                        weights = NULL,
+                        show_weights = FALSE,
                         ratio = TRUE,
                         precalculated_ratios = FALSE,
                         show_ic50 = FALSE,
@@ -228,7 +249,7 @@ plotIsotonic = function(fit,
                         transform_x = TRUE,
                         color_by = NULL,
                         original_data = NULL) {
-
+  
   # Construct title if not provided
   if (is.null(title)) {
     if (!is.null(drug_name) && !is.null(protein_name)) {
@@ -237,7 +258,7 @@ plotIsotonic = function(fit,
       title = "Isotonic Regression Fit"
     }
   }
-
+  
   # Set default labels if not provided
   if (is.null(y_lab)) {
     if (precalculated_ratios || ratio) {
@@ -246,7 +267,7 @@ plotIsotonic = function(fit,
       y_lab = expression(Log[2] ~ "Intensity")
     }
   }
-
+  
   if (is.null(x_lab)) {
     if (transform_x) {
       x_lab = expression(Log[10] ~ "[drug (M)]")
@@ -254,7 +275,7 @@ plotIsotonic = function(fit,
       x_lab = "Dose"
     }
   }
-
+  
   # Prepare data
   if (transform_x) {
     fit_df = data.frame(dose = log10(fit$x), y_pred = fit$y_pred)
@@ -263,7 +284,12 @@ plotIsotonic = function(fit,
     fit_df = data.frame(dose = fit$x, y_pred = fit$y_pred)
     orig_df = data.frame(x = fit$x, y = fit$original_y)
   }
-
+  
+  # Add weights if provided
+  if (!is.null(weights) && show_weights) {
+    orig_df$weight = weights
+  }
+  
   # Add color grouping variable if requested
   if (!is.null(color_by) && !is.null(original_data)) {
     if (!color_by %in% names(original_data)) {
@@ -272,33 +298,59 @@ plotIsotonic = function(fit,
     order_idx = order(original_data$dose)
     orig_df[[color_by]] = original_data[[color_by]][order_idx]
   }
-
-  # Base plot with conditional coloring
+  
+  # Base plot with conditional coloring and sizing
   if (!is.null(color_by) && !is.null(original_data)) {
     # Color points by grouping variable
-    model_fit_plot = ggplot2::ggplot() +
-      ggplot2::geom_point(data = orig_df,
-                          ggplot2::aes(x = x, y = y, color = .data[[color_by]]),
-                          size = 2) +
+    if (!is.null(weights) && show_weights) {
+      model_fit_plot = ggplot2::ggplot() +
+        ggplot2::geom_point(data = orig_df,
+                            ggplot2::aes(x = x, y = y, color = .data[[color_by]], alpha = weight, size = weight)) +
+  ggplot2::scale_alpha_continuous(range = c(0.35, 1), name = "Weight") +
+  ggplot2::scale_size_continuous(range = c(1.5, 3), name = "Weight") +
+  ggplot2::guides(alpha = "legend", size = "legend")
+    } else {
+      model_fit_plot = ggplot2::ggplot() +
+        ggplot2::geom_point(data = orig_df,
+                            ggplot2::aes(x = x, y = y, color = .data[[color_by]]),
+                            size = 2.5)
+    }
+    model_fit_plot = model_fit_plot +
       ggplot2::geom_line(data = fit_df,
                          ggplot2::aes(x = dose, y = y_pred),
                          color = "orange", size = 1.2) +
       ggplot2::labs(x = x_lab, y = y_lab, title = title, color = color_by)
   } else {
     # Default: black points, orange line
-    model_fit_plot = ggplot2::ggplot() +
-      ggplot2::geom_point(data = orig_df,
-                          ggplot2::aes(x = x, y = y, color = "Observed Data"),
-                          size = 2) +
+    if (!is.null(weights) && show_weights) {
+      model_fit_plot = ggplot2::ggplot() +
+        ggplot2::geom_point(data = orig_df,
+                            ggplot2::aes(x = x, y = y, size = weight),
+                            color = "black") +
+        ggplot2::scale_size_continuous(range = c(1, 5), name = "Weight")
+    } else {
+      model_fit_plot = ggplot2::ggplot() +
+        ggplot2::geom_point(data = orig_df,
+                            ggplot2::aes(x = x, y = y, color = "Observed Data"),
+                            size = 2)
+    }
+    model_fit_plot = model_fit_plot +
       ggplot2::geom_line(data = fit_df,
                          ggplot2::aes(x = dose, y = y_pred, color = "Isotonic Regression Fit"),
-                         size = 1.2) +
-      ggplot2::scale_color_manual(name = NULL,
-                                  values = c("Observed Data" = "black",
-                                             "Isotonic Regression Fit" = "orange")) +
+                         size = 1.2)
+    
+    # Only add color scale if not showing weights
+    if (!show_weights) {
+      model_fit_plot = model_fit_plot +
+        ggplot2::scale_color_manual(name = NULL,
+                                    values = c("Observed Data" = "black",
+                                               "Isotonic Regression Fit" = "orange"))
+    }
+    
+    model_fit_plot = model_fit_plot +
       ggplot2::labs(x = x_lab, y = y_lab, title = title)
   }
-
+  
   # Apply common theme
   model_fit_plot = model_fit_plot +
     ggplot2::ylim(0, NA) +
@@ -310,13 +362,13 @@ plotIsotonic = function(fit,
       axis.title = ggplot2::element_text(face = "bold", size = 12),
       plot.title = ggplot2::element_text(hjust = 0.5, face = "bold", size = 16)
     )
-
+  
   # Handle legend display
-  if (!legend && is.null(color_by)) {
+  if (!legend && is.null(color_by) && !show_weights) {
     model_fit_plot = model_fit_plot +
       ggplot2::theme(legend.position = "none")
   }
-
+  
   # Optional IC50
   if (show_ic50) {
     if (precalculated_ratios || ratio) {
@@ -329,9 +381,9 @@ plotIsotonic = function(fit,
       }
       adjusted_target = mean(orig_df$y[dmso_idx], na.rm = TRUE) + log2(target_response)
     }
-
+    
     ic50_pred = PredictIC50(fit, target_response = adjusted_target)
-
+    
     # Handle duplicate x values for approx
     if (length(unique(fit$x)) < length(fit$x)) {
       x_unique = unique(fit$x)
@@ -344,7 +396,7 @@ plotIsotonic = function(fit,
         y_ic50 = stats::approx(fit$x, fit$y_pred, xout = ic50_pred)$y
       })
     }
-
+    
     if (transform_x) {
       ic50_pred_transform = -log10(ic50_pred)
       ic50_label = paste("pIC50 =", round(ic50_pred_transform, 2))
@@ -353,14 +405,14 @@ plotIsotonic = function(fit,
       ic50_label = paste("IC50 =", round(ic50_pred, 2))
       x_pos = ic50_pred
     }
-
+    
     model_fit_plot = model_fit_plot +
       ggplot2::geom_point(ggplot2::aes(x = x_pos, y = y_ic50),
                           shape = 23, size = 3.5, fill = "red", color = "black") +
       ggplot2::annotate("text", x = x_pos + 0.35, y = y_ic50,
                         label = ic50_label,
                         vjust = -0.5, hjust = 0.5, size = 4, fontface = "bold")
-
+    
     # Optional display IC50 confidence interval
     if (show_ic50 && !is.null(ci) && !is.na(ci$ci_lower) && !is.na(ci$ci_upper)) {
       if (transform_x) {
@@ -372,7 +424,7 @@ plotIsotonic = function(fit,
         ci_lower_x = ci$ci_lower
         ci_upper_x = ci$ci_upper
       }
-
+      
       model_fit_plot = model_fit_plot +
         ggplot2::geom_segment(ggplot2::aes(x = ci_lower_x, xend = ci_lower_x,
                                            y = 0, yend = adjusted_target),
@@ -386,6 +438,6 @@ plotIsotonic = function(fit,
                           alpha = 0.1, fill = "red")
     }
   }
-
+  
   return(model_fit_plot)
 }
