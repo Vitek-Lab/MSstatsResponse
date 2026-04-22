@@ -147,6 +147,8 @@ calculateTurnoverRatios <- function(
     if (is.null(tracer_constants)) {
       stop("normalize_tracer = TRUE but tracer_constants was not provided")
     }
+    
+    names(tracer_constants) = as.character(parse_timepoint(names(tracer_constants)))
 
     df_wide <- df_wide %>%
       mutate(
