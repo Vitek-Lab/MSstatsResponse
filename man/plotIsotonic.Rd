@@ -6,6 +6,8 @@
 \usage{
 plotIsotonic(
   fit,
+  weights = NULL,
+  show_weights = FALSE,
   ratio = TRUE,
   precalculated_ratios = FALSE,
   show_ic50 = FALSE,
@@ -26,6 +28,10 @@ plotIsotonic(
 }
 \arguments{
 \item{fit}{A model object returned by fitIsotonicRegression().}
+
+\item{weights}{Numeric vector of weights (same length as data points). Default is NULL.}
+
+\item{show_weights}{Logical. If TRUE and weights provided, scale point size by weight. Default is FALSE.}
 
 \item{ratio}{Logical. If TRUE, shows plot on the ratio scale relative to DMSO. Default is FALSE.}
 

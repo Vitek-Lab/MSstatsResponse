@@ -8,6 +8,8 @@ visualizeResponseProtein(
   data,
   protein_name,
   drug_name,
+  weights = NULL,
+  show_weights = FALSE,
   ratio_response = TRUE,
   precalculated_ratios = FALSE,
   transform_dose = TRUE,
@@ -29,6 +31,10 @@ visualizeResponseProtein(
 \item{protein_name}{Character. Protein name to plot.}
 
 \item{drug_name}{Character. Drug name to plot.}
+
+\item{weights}{Optional numeric vector of weights matching nrow(data). Default is NULL (equal weights).}
+
+\item{show_weights}{Logical. If TRUE and weights are provided, scale point size by weight. Default is FALSE.}
 
 \item{ratio_response}{Logical. If TRUE, compute IC50 on ratio scale; if FALSE, use log2 intensities.}
 
@@ -94,16 +100,15 @@ plot1 <- visualizeResponseProtein(
 )
 print(plot1)
 
-# Example 2: Add IC50 annotation with custom labels
+# Example 2: With weights (visualized as point size)
 plot2 <- visualizeResponseProtein(
   data = prepared_data,
   protein_name = "PROTEIN_A",
   drug_name = "Drug1",
+  weights = prepared_data$weight,
+  show_weights = TRUE,
   ratio_response = TRUE,
-  show_ic50 = TRUE,
-  x_lab = "Drug Concentration (M)",
-  y_lab = "Relative Protein Abundance",
-  title = "Drug Response for PROTEIN_A"
+  show_ic50 = TRUE
 )
 print(plot2)
 

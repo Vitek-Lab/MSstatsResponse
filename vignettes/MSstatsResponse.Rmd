@@ -29,11 +29,11 @@ knitr::opts_chunk$set(
 MSstatsResponse provides statistical tools for detecting drug-protein interactions and estimating IC50 values from dose-response mass spectrometry-based proteomics experiments.
 The package implements isotonic regression models to detect monotonic dose-response relationships and provides robust statistical inference through F-tests and bootstrap confidence intervals.
 
-MSstatsResponse is designed to work seamlessly with summarized data from MSstats and MSstatsTMT workflows, but can also process other dose-response proteomics datasets that include protein-level quantifications across drug treatments.
+MSstatsResponse is designed to work with summarized data from MSstats and MSstatsTMT workflows, but can also process other dose-response proteomics datasets that include protein-level quantifications across drug treatments.
 
 ### Statistical framework
 
-The package employs isotonic regression, a non-parametric method that fits monotonic functions without assuming a specific functional form.
+The package uses isotonic regression, a non-parametric method that fits monotonic functions without assuming a specific functional form.
 This approach is particularly suitable for dose-response data where monotonicity (increasing or decreasing trend) is expected.
 
 ### Analysis workflow
@@ -54,7 +54,10 @@ MSstatsResponse implements the following statistical analysis pipeline:
 if (!requireNamespace("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
 
-BiocManager::install("MSstatsResponse")
+#BiocManager::install("MSstatsResponse")
+
+devtools::load_all("/Users/sarahszvetecz/Library/CloudStorage/OneDrive-NortheasternUniversity/R_dev/MSstatsResponse")
+
 ```
 
 ### Load required libraries
@@ -72,7 +75,7 @@ library(data.table)
 
 ## Data preprocessing with MSstats
 
-If analyzing a mass spectrometry-based proteomics dataset, data should be preprocessed using the standard MSstats workflow for cleaning, normalization, and protein summarization prior to analysis with MSstatsResponse.
+When analyzing a mass spectrometry-based proteomics dataset, data should be preprocessed using the standard MSstats workflow for cleaning, normalization, and protein summarization prior to analysis with MSstatsResponse.
 
 When using MSstats, data can be converted with one of the available converter functions (e.g., `SpectronauttoMSstatsFormat()`) and subsequently processed with `dataProcess()`.
 
@@ -193,6 +196,7 @@ response_results %>%
 
 ### Interpreting results
 
+- **log2FC**: Log2 fold change between the highest and lowest doses
 - **F_statistic**: Ratio of between-dose to within-dose variance
 - **P_value**: Raw p-value from F-test
 - **adj.pvalue**: FDR-adjusted p-value (Benjamini-Hochberg)
@@ -346,15 +350,15 @@ visualizeResponseProtein(
 `futureExperimentSimulation()` evaluates detection performance under a user-defined experimental design by simulating a full experiment and measuring true-positive and false-positive rates.
 Proteins from your own data can be used as templates for more realistic simulations.
 
-```{r future_experiment}
+```{r future_experiment, message=FALSE, warning=FALSE}
 # pull unique doses 
 dose_levels = as.numeric(unique(dia_prepared$dose))
 
 # run simulation
 custom_simulation <- futureExperimentSimulation(
   N_proteins = 300,
-  N_rep = 3,
-  N_Control_Rep = 3,
+  N_rep = 2,
+  N_Control_Rep = 2,
   Concentrations = dose_levels,
   data = dia_prepared,
   strong_proteins = "PROTEIN_B",
@@ -375,17 +379,18 @@ Control (0) and the highest dose are always included; intermediate doses are sel
 
 Use `plot_tpr_power_curve()` to visualize the resulting power curves.
 
-```{r tpr_power_curve, eval=TRUE}
+```{r tpr_power_curve, eval=TRUE, message=FALSE, warning=FALSE}
 power_results <- run_tpr_simulation(
   rep_range = c(2,4),
   concentrations = dose_levels,
-  dose_range = c(2, 4),
+  dose_range = c(2, 9),
   data = dia_prepared,
   protein = "PROTEIN_A",
-  n_proteins = 100
+  n_proteins = 300
 )
 
 plot_tpr_power_curve(power_results)
+
 ```
 
 
@@ -398,6 +403,6 @@ sessionInfo()
 
 ## References
 
-1. Szvetecz, S., et al. (2025). MSstatsResponse: Semi-parametric statistical model enhances drug-protein interaction detection and IC50 estimation in chemoproteomics experiments. *Manuscript in preparation.*
+1. Szvetecz, S., et al. (2026). MSstatsResponse: Semi-parametric statistical model enhances drug-protein interaction detection and IC50 estimation in chemoproteomics experiments. *Manuscript in preparation.*
 
 2. Choi, M., et al. (2014). MSstats: an R package for statistical analysis of quantitative mass spectrometry-based proteomic experiments. *Bioinformatics*, 30(17), 2524-2526.

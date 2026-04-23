@@ -34,7 +34,7 @@ test_that("doseResponseFit returns correct structure", {
   )
 
   expect_s3_class(results, "data.frame")
-  expect_true("protein" %in% names(results))
+  expect_true("Protein" %in% names(results))
   expect_true("drug" %in% names(results))
   expect_true("F_statistic" %in% names(results))
   expect_true("P_value" %in% names(results))
@@ -50,7 +50,7 @@ test_that("doseResponseFit processes all proteins", {
   )
 
   expect_equal(nrow(results), 3)  # 3 proteins
-  expect_equal(unique(results$protein), c("P1", "P2", "P3"))
+  expect_equal(unique(results$Protein), c("P1", "P2", "P3"))
 })
 
 test_that("doseResponseFit handles multiple drugs", {
@@ -86,7 +86,7 @@ test_that("doseResponseFit handles custom weights", {
   # Should return results for all proteins
   expect_s3_class(results, "data.frame")
   expect_equal(nrow(results), 3)
-  expect_equal(length(unique(results$protein)), 3)
+  expect_equal(length(unique(results$Protein)), 3)
 })
 
 test_that("doseResponseFit filters out DMSO from drug list", {
@@ -102,7 +102,7 @@ test_that("doseResponseFit filters out DMSO from drug list", {
   # Should return empty data frame with correct structure
   expect_s3_class(results, "data.frame")
   expect_equal(nrow(results), 0)
-  expect_true("protein" %in% names(results))
+  expect_true("Protein" %in% names(results))
   expect_true("drug" %in% names(results))
   expect_true("P_value" %in% names(results))
 })

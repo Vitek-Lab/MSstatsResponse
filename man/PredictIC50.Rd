@@ -14,7 +14,8 @@ predictIC50(
   precalculated_ratios = FALSE,
   bootstrap = TRUE,
   BPPARAM = bpparam(),
-  target_response = NULL
+  target_response = NULL,
+  weights = NULL
 )
 }
 \arguments{

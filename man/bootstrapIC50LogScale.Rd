@@ -11,7 +11,8 @@ bootstrapIC50LogScale(
   alpha = 0.05,
   increasing = FALSE,
   target_response = 0.5,
-  transform_x = TRUE
+  transform_x = TRUE,
+  weights = NULL
 )
 }
 \arguments{

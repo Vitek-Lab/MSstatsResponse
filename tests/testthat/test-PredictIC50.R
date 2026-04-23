@@ -233,8 +233,8 @@ test_that("predictIC50 handles missing data appropriately", {
 
   # Should process P1 successfully
   expect_equal(nrow(results), 2)
-  expect_false(is.na(results$IC50[results$protein == "P1"]))
-  expect_true(is.na(results$IC50[results$protein == "P2"]))
+  expect_false(is.na(results$IC50[results$Protein == "P1"]))
+  expect_true(is.na(results$IC50[results$Protein == "P2"]))
 })
 
 

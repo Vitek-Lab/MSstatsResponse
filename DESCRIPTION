@@ -1,12 +1,16 @@
 Package: MSstatsResponse
 Type: Package
 Title: Statistical Methods for Chemoproteomics Dose-Response Analysis
-Version: 1.1.0
+Version: 1.1.2
 Authors@R: c(
     person(
       "Sarah", "Szvetecz",
       email = "szvetecz.s@northeastern.edu",
       role = c("aut", "cre")), 
+    person(
+      "Tony", "Wu",
+      email = "wu.anton@northeastern.edu",
+      role = c("aut")),
     person(
       "Devon", "Kohler",
       email = "kohler.d@northeastern.edu",

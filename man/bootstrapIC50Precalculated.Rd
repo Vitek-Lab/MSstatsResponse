@@ -11,7 +11,8 @@ bootstrapIC50Precalculated(
   alpha = 0.1,
   increasing = FALSE,
   target_response = 0.5,
-  transform_x = TRUE
+  transform_x = TRUE,
+  weights = NULL
 )
 }
 \arguments{
