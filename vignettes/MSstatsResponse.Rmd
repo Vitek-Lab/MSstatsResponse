@@ -54,9 +54,7 @@ MSstatsResponse implements the following statistical analysis pipeline:
 if (!requireNamespace("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
 
-#BiocManager::install("MSstatsResponse")
-
-devtools::load_all("/Users/sarahszvetecz/Library/CloudStorage/OneDrive-NortheasternUniversity/R_dev/MSstatsResponse")
+BiocManager::install("MSstatsResponse")
 
 ```
 
