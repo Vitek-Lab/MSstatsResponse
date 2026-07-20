@@ -187,6 +187,30 @@ parse_timepoint <- function(time_strings) {
   return(hours)
 }
 
+#' Kendall monotonicity score, robust to sparse or all-missing data
+#'
+#' Computes `max(0, Kendall's tau)` between time and response, treating a group
+#' with fewer than two finite (time, response) pairs as non-monotonic (score 0)
+#' instead of letting `cor(use = "complete.obs")` error on zero complete pairs.
+#' A zero-variance group (>= 2 points but constant) yields `NA` from `cor()`,
+#' which is also mapped to 0.
+#'
+#' @param time Numeric vector of timepoints.
+#' @param response Numeric vector of responses (same length as `time`).
+#'
+#' @return A single numeric monotonicity score in \[0, 1\].
+#'
+#' @keywords internal
+#' @importFrom stats cor
+kendall_monotonicity <- function(time, response) {
+  ok <- is.finite(time) & is.finite(response)
+  if (sum(ok) < 2) {
+    return(0)
+  }
+  score <- suppressWarnings(cor(time[ok], response[ok], method = "kendall"))
+  if (is.na(score)) 0 else max(0, score)
+}
+
 
 #' Calculate quality-based weights for peptide measurements
 #'
@@ -297,11 +321,8 @@ calculatePeptideWeights <- function(
     ) %>%
     group_by(across(all_of(c(protein_col, peptide_col)))) %>%
     mutate(
-      monotonicity_score = pmax(0,
-                                cor(.data[[time_col]], .data[[response_col]],
-                                    method = "kendall", use = "complete.obs")
-      ),
-      monotonicity_score = if_else(is.na(monotonicity_score), 0, monotonicity_score)
+      monotonicity_score = kendall_monotonicity(.data[[time_col]],
+                                                .data[[response_col]])
     ) %>%
     ungroup() %>%
     mutate(

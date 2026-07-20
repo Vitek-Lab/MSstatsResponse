@@ -9,7 +9,7 @@ A data frame with protein-level abundance values and
 associated MSstats metadata column names.
 }
 \usage{
-DIA_MSstats_Normalized
+data(DIA_MSstats_Normalized)
 }
 \description{
 This dataset contains normalized protein-level data from a DIA-MS

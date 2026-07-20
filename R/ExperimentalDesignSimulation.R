@@ -494,8 +494,7 @@ simulateChemoProteinLevelNonParametric = function(N_proteins = 3000,
 #' @param concentration_count Number of concentrations in simulation
 #'
 #' @return A list containing the plot and plot data
-#' @importFrom ggplot2 ggplot aes geom_bar geom_text labs scale_fill_manual
-#'   scale_y_continuous theme_classic theme element_text
+#' @importFrom ggplot2 ggplot aes geom_bar geom_text labs scale_fill_manual scale_y_continuous theme_classic theme element_text
 #' @import dplyr
 plotHitRateMSstatsResponse = function(results, rep_count, concentration_count) {
 

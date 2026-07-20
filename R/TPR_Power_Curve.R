@@ -217,8 +217,7 @@ run_tpr_simulation <- function(rep_range, concentrations, dose_range,
 #' @param show_legend Logical. Whether to display the legend.
 #'
 #' @return A ggplot object.
-#' @importFrom ggplot2 ggplot aes geom_line geom_point scale_x_continuous
-#'   scale_y_continuous scale_color_manual labs theme_bw theme element_text
+#' @importFrom ggplot2 ggplot aes geom_line geom_point scale_x_continuous scale_y_continuous scale_color_manual labs theme_bw theme element_text
 #' @noRd
 .make_tpr_panel <- function(data, k_grid, show_legend = FALSE) {
   rep_levels <- sort(unique(data$N_rep))
@@ -288,8 +287,7 @@ run_tpr_simulation <- function(rep_range, concentrations, dose_range,
 #' plot_tpr_power_curve(results)
 #' }
 #'
-#' @importFrom ggplot2 ggplot aes geom_line geom_point scale_x_continuous
-#'   scale_y_continuous scale_color_manual labs theme_bw theme element_text
+#' @importFrom ggplot2 ggplot aes geom_line geom_point scale_x_continuous scale_y_continuous scale_color_manual labs theme_bw theme element_text
 #' @importFrom plotly ggplotly layout
 #' @export
 plot_tpr_power_curve <- function(simulation_results, static = FALSE) {
