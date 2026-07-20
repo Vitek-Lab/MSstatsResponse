@@ -28,7 +28,6 @@ License: Artistic-2.0
 Encoding: UTF-8
 Depends: R (>= 4.5.0)
 LazyData: false
-RoxygenNote: 7.3.3
 Imports:
     BiocParallel,
     ggplot2,
@@ -54,3 +53,4 @@ Suggests:
 VignetteBuilder: knitr
 Roxygen: list(markdown = TRUE)
 biocViews: Proteomics, MassSpectrometry, StatisticalMethod, Software, Regression
+Config/roxygen2/version: 8.0.0
