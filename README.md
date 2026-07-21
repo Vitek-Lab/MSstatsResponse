@@ -14,7 +14,7 @@ bootstrap-based confidence intervals rather than assuming a fixed parametric
 curve shape. The same framework applies to protein turnover kinetics
 (synthesis/degradation curves and half-life estimation) and, more generally, to
 any assay whose response follows a monotonic trend with a dose, concentration,
-time, or temperature. MSstatsResponse is applicable to DIA, DDA, and targeted
+time, or temperature. MSstatsResponse is applicable to DIA, DDA, TMT, and targeted
 SRM workflows.
 
 MSstatsResponse is part of the [MSstats](https://github.com/Vitek-Lab/MSstats)
