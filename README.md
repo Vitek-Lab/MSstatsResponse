@@ -35,7 +35,7 @@ BiocManager::install("MSstatsResponse")
 The development version can be installed directly from this repository:
 
 ```r
-BiocManager::install("Vitek-Lab/MSstatsResponse", ref = "devel")
+remotes::install_github("Vitek-Lab/MSstatsResponse")
 ```
 
 ## Quick Start
