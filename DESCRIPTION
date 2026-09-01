@@ -35,7 +35,6 @@ Imports:
     stats,
     parallel,
     data.table,
-    tidyr,
     stringr,
     plotly,
     utils
