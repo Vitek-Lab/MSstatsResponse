@@ -14,6 +14,10 @@ utils::globalVariables(c(
   # Variables from plotHitRateMSstatsResponse
   "adj.pvalue",
 
+  # Variables from calculateTurnoverRatios (data.table NSE)
+  ".SD", "Protein", "BaseSequence", "Label", "TimeVal", "Run",
+  "Heavy", "Light", "Total", "H_frac", "L_frac", "tracer_factor",
+
   # Add any other NSE variables used in your package
   "drug", "protein", "dose", "x", "y", "y_pred"
 ))

@@ -63,8 +63,7 @@
 #' }
 #'
 #' @export
-#' @importFrom dplyr filter mutate group_by summarise arrange slice_head pull ungroup select rename
-#' @importFrom tidyr pivot_wider
+#' @importFrom data.table as.data.table copy data.table dcast is.data.table setnames :=
 #' @importFrom stringr str_remove_all str_extract str_detect
 calculateTurnoverRatios <- function(
     feature_data,
@@ -89,58 +88,55 @@ calculateTurnoverRatios <- function(
     stop("Missing required columns: ", paste(missing_cols, collapse = ", "))
   }
 
-  # Process all proteins
-  df <- feature_data %>%
-    mutate(
-      Protein = .data[[protein_col]],
-      BaseSequence = str_remove_all(.data[[peptide_col]], "\\[.*?\\]"),
-      Label = .data[[channel_col]],
-      TimeVal = parse_timepoint(.data[[time_col]]),
-      Intensity = .data[[intensity_col]],
-      Run = .data[[run_col]]
-    ) %>%
-    filter(!is.na(TimeVal)) %>%
-    filter(Label %in% c(heavy_label, light_label))
+  # Process all proteins. Copy so the caller's data.table is never modified
+  # by the := assignments below.
+  df <- if (is.data.table(feature_data)) {
+    copy(feature_data)
+  } else {
+    as.data.table(feature_data)
+  }
+
+  df[, c("Protein", "BaseSequence", "Label",
+         "TimeVal", "Intensity", "Run") := list(
+    df[[protein_col]],
+    str_remove_all(df[[peptide_col]], "\\[.*?\\]"),
+    df[[channel_col]],
+    parse_timepoint(df[[time_col]]),
+    df[[intensity_col]],
+    df[[run_col]]
+  )]
+  df <- df[!is.na(TimeVal) & Label %in% c(heavy_label, light_label)]
 
   if (nrow(df) == 0) {
     warning("No data found matching Heavy/Light labels")
-    return(data.frame())
+    return(data.table())
   }
 
-  # Apply optional peptide selector per protein
+  # Apply optional peptide selector per protein (.SD excludes Protein)
   if (!is.null(peptide_selector)) {
-    df <- df %>%
-      group_by(Protein) %>%
-      group_modify(~ peptide_selector(.x)) %>%
-      ungroup()
+    df <- df[, as.data.table(peptide_selector(.SD)), by = Protein]
   }
 
   # Aggregate duplicates (multiple features/transitions for same peptide)
   # This can happen when there are multiple charge states or modifications
-  df <- df %>%
-    group_by(Protein, BaseSequence, TimeVal, Run, Label) %>%
-    summarise(Intensity = agg_function(Intensity, na.rm = TRUE), .groups = "drop")
+  df <- df[, list(Intensity = agg_function(Intensity, na.rm = TRUE)),
+           keyby = list(Protein, BaseSequence, TimeVal, Run, Label)]
 
   # Pivot to wide format (keep replicates separate)
-  df_wide <- df %>%
-    select(Protein, BaseSequence, TimeVal, Run, Label, Intensity) %>%
-    pivot_wider(names_from = Label, values_from = Intensity)
+  df_wide <- dcast(df, Protein + BaseSequence + TimeVal + Run ~ Label,
+                   value.var = "Intensity")
 
   # Rename heavy/light columns if they're not "Heavy" and "Light"
   if (heavy_label != "Heavy") {
-    df_wide <- df_wide %>% rename(Heavy = all_of(heavy_label))
+    setnames(df_wide, heavy_label, "Heavy")
   }
   if (light_label != "Light") {
-    df_wide <- df_wide %>% rename(Light = all_of(light_label))
+    setnames(df_wide, light_label, "Light")
   }
 
-  df_wide <- df_wide %>%
-    filter(!is.na(Heavy) & !is.na(Light)) %>%
-    mutate(
-      Total = Heavy + Light,
-      H_frac = Heavy / Total,
-      L_frac = Light / Total
-    )
+  df_wide <- df_wide[!is.na(Heavy) & !is.na(Light)]
+  df_wide[, Total := Heavy + Light]
+  df_wide[, c("H_frac", "L_frac") := list(Heavy / Total, Light / Total)]
 
   # Optional tracer normalization
   if (normalize_tracer) {
@@ -150,15 +146,12 @@ calculateTurnoverRatios <- function(
 
     names(tracer_constants) = as.character(parse_timepoint(names(tracer_constants)))
 
-    df_wide <- df_wide %>%
-      mutate(
-        tracer_factor = tracer_constants[as.character(TimeVal)],
-        H_frac = H_frac / tracer_factor,
-        L_frac =  pmax(1 - H_frac, 0)
-      )
+    df_wide[, tracer_factor := unname(tracer_constants[as.character(TimeVal)])]
+    df_wide[, H_frac := H_frac / tracer_factor]
+    df_wide[, L_frac := pmax(1 - H_frac, 0)]
   }
 
-  df_wide
+  df_wide[]
 }
 
 #' Parse timepoint strings to numeric hours

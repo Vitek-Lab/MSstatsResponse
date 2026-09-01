@@ -5,13 +5,46 @@
 \title{Kendall monotonicity score, robust to sparse or all-missing data}
 \usage{
 kendall_monotonicity(time, response)
+
+kendall_monotonicity(time, response)
 }
 \arguments{
 \item{time}{Numeric vector of timepoints.}
 
 \item{response}{Numeric vector of responses (same length as \code{time}).}
+
+\item{data}{Data frame with peptide-level measurements (output from calculateTurnoverRatios)}
+
+\item{protein_col}{Character. Column containing protein identifiers. Default = "Protein"}
+
+\item{peptide_col}{Character. Column containing peptide identifiers. Default = "BaseSequence"}
+
+\item{time_col}{Character. Column containing timepoint values. Default = "TimeVal"}
+
+\item{response_col}{Character. Column containing response values (e.g., H_frac). Default = "H_frac"}
+
+\item{light_intensity_col}{Character. Column containing light channel intensity. Default = "Light"}
+
+\item{validity_threshold}{Numeric. Maximum allowed response value. Default = 1.3}
+
+\item{top_n_peptides}{Numeric. Top n peptides based on median light channel intensity. If NULL, no filtering (all get weight 1).}
 }
 \value{
+A single numeric monotonicity score in [0, 1].
+
+Input data frame with added columns:
+\itemize{
+\item n_obs: Total number of observations for this peptide
+\item k_obs: Number of non-zero timepoints where this peptide is detected
+\item coverage_per_peptide: k_obs / n (per-peptide detection proportion)
+\item p_protein: Protein-level mean detection rate across all its peptides
+\item coverage_score: P(X <= k_obs | n, p_protein) — binomial CDF coverage score
+\item light_intensity_score: 1 (no filter) or binary top-N indicator (per protein)
+\item monotonicity_score: Kendall correlation (time vs response), floored at 0
+\item validity_flag: 0 if any invalid values, 1 otherwise
+\item weight: Combined quality weight (product of all components)
+}
+
 A single numeric monotonicity score in [0, 1].
 }
 \description{
@@ -20,5 +53,14 @@ with fewer than two finite (time, response) pairs as non-monotonic (score 0)
 instead of letting \code{cor(use = "complete.obs")} error on zero complete pairs.
 A zero-variance group (>= 2 points but constant) yields \code{NA} from \code{cor()},
 which is also mapped to 0.
+
+Calculates weights based on coverage, signal intensity, monotonicity, and data validity.
+Designed for protein turnover data but applicable to any dose/time-response data.
+}
+\details{
+Coverage is scored via a binomial CDF: for each peptide, P(X <= k | n, p) where k is
+the number of non-zero timepoints detected, n is the total non-zero timepoints in the
+experiment, and p is the protein-level mean detection rate across all its peptides.
+This penalizes peptides with unusually low coverage relative to the protein's norm.
 }
 \keyword{internal}
