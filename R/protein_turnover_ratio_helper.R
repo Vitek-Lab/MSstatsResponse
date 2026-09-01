@@ -259,30 +259,6 @@ kendall_monotonicity <- function(time, response) {
 #' ratios_weighted_strict <- calculatePeptideWeights(ratios, validity_threshold = 1.0)
 #' }
 #'
-#' Kendall monotonicity score, robust to sparse or all-missing data
-#'
-#' Computes `max(0, Kendall's tau)` between time and response, treating a group
-#' with fewer than two finite (time, response) pairs as non-monotonic (score 0)
-#' instead of letting `cor(use = "complete.obs")` error on zero complete pairs.
-#' A zero-variance group (>= 2 points but constant) yields `NA` from `cor()`,
-#' which is also mapped to 0.
-#'
-#' @param time Numeric vector of timepoints.
-#' @param response Numeric vector of responses (same length as `time`).
-#'
-#' @return A single numeric monotonicity score in \[0, 1\].
-#'
-#' @keywords internal
-#' @importFrom stats cor
-kendall_monotonicity <- function(time, response) {
-  ok <- is.finite(time) & is.finite(response)
-  if (sum(ok) < 2) {
-    return(0)
-  }
-  score <- suppressWarnings(cor(time[ok], response[ok], method = "kendall"))
-  if (is.na(score)) 0 else max(0, score)
-}
-
 #' @export
 #' @importFrom dplyr group_by mutate ungroup across all_of distinct summarise left_join if_else dense_rank
 #' @importFrom stats cor pbinom median
