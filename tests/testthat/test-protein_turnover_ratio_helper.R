@@ -1,8 +1,4 @@
 # Tests for calculateTurnoverRatios and its helpers.
-#
-# calculateTurnoverRatios was refactored from dplyr/tidyr to data.table; these
-# tests pin the numeric contract (aggregation, pivot, H/L fractions, tracer
-# normalization) so a future rewrite of the internals is verifiable.
 
 make_feature_data <- function() {
   grid <- expand.grid(
@@ -14,7 +10,6 @@ make_feature_data <- function() {
     CHARGE = c(2, 3),
     stringsAsFactors = FALSE
   )
-  # P1 carries the two modified peptides, P2 only the third
   grid <- grid[!(grid$PROTEIN == "P2" & grid$PEPTIDE != "THIRDPEP"), ]
   grid <- grid[!(grid$PROTEIN == "P1" & grid$PEPTIDE == "THIRDPEP"), ]
   grid$INTENSITY <- seq_len(nrow(grid)) * 100
@@ -63,7 +58,6 @@ test_that("fractions sum to one and Total is the H + L sum", {
 
 test_that("duplicate features are collapsed by agg_function", {
   feat <- make_feature_data()
-  # Two charge states per (protein, peptide, time, run, label) -> one row out
   n_expected <- nrow(unique(feat[, c("PROTEIN", "PEPTIDE", "GROUP", "RUN")]))
   res_max <- calculateTurnoverRatios(feat)
   expect_equal(nrow(res_max), n_expected)
@@ -71,7 +65,6 @@ test_that("duplicate features are collapsed by agg_function", {
   res_min <- calculateTurnoverRatios(feat, agg_function = min)
   expect_true(all(res_max$Heavy >= res_min$Heavy))
 
-  # max is the default: verify one cell directly
   cell <- feat[feat$PROTEIN == "P1" & feat$PEPTIDE == "SEQVENCE" &
                  feat$GROUP == "1hr" & feat$RUN == "R1" & feat$LABEL == "H", ]
   target <- res_max[res_max$Protein == "P1" & res_max$BaseSequence == "SEQVENCE" &
@@ -128,7 +121,6 @@ test_that("tracer normalization rescales H_frac and floors L_frac at zero", {
                                   tracer_constants = tc)
 
   expect_true("tracer_factor" %in% names(norm))
-  # constants are re-keyed through parse_timepoint, so order of names is irrelevant
   expect_equal(norm$tracer_factor, unname(tc[match(norm$TimeVal, c(0, 1, 12, 168))]))
   expect_equal(norm$H_frac, plain$H_frac / norm$tracer_factor)
   expect_equal(norm$L_frac, pmax(1 - norm$H_frac, 0))
@@ -147,7 +139,6 @@ test_that("custom column names and heavy/light labels are honored", {
   names(feat)[names(feat) == "PROTEIN"] <- "Protein"
   names(feat)[names(feat) == "GROUP"] <- "Condition"
   feat$LABEL <- ifelse(feat$LABEL == "H", "Heavy", "Light")
-  # protein-level shape: peptide column is the protein column (MSstatsShiny path)
   res <- calculateTurnoverRatios(
     feat, time_col = "Condition", peptide_col = "Protein",
     protein_col = "Protein", heavy_label = "Heavy", light_label = "Light"
@@ -178,10 +169,6 @@ test_that("kendall_monotonicity floors at zero and tolerates sparse input", {
 })
 
 test_that("calculatePeptideWeights consumes calculateTurnoverRatios output", {
-  # Single run: with replicate runs calculatePeptideWeights counts rows rather
-  # than distinct timepoints in k_obs, which drives coverage_per_peptide above 1
-  # and yields NaN weights out of pbinom(). That predates the data.table
-  # refactor and is not exercised here.
   feat <- make_feature_data()
   res <- calculateTurnoverRatios(feat[feat$RUN == "R1", ])
   weighted <- calculatePeptideWeights(res)
