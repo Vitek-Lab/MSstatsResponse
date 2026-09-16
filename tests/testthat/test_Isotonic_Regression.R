@@ -267,3 +267,40 @@ test_that("fitIsotonicRegression handles NA values", {
     NA  # Expect it to handle without error or with specific error
   )
 })
+
+test_that("doseResponseFit empty results carry the same columns as populated ones", {
+  # doseResponseFit has two separate early returns for "nothing to report".
+  # A column rename once updated the populated path and only one of the two,
+  # so an empty result disagreed with a populated one. Pin all three together.
+  populated <- doseResponseFit(data = create_test_protein_data())
+  expect_gt(nrow(populated), 0)
+
+  # Early return 1: every drug is DMSO, so the drug list comes out empty
+  no_drugs <- doseResponseFit(data = data.frame(
+    protein = rep("P1", 3),
+    drug = rep("DMSO", 3),
+    dose = c(0, 0, 0),
+    response = c(20, 19.9, 20.1)
+  ))
+
+  # Early return 2: a real drug is present, but no protein yields a fit
+  no_fits <- suppressWarnings(doseResponseFit(data = data.frame(
+    protein = "P1",
+    drug = "D1",
+    dose = 1e-9,
+    response = 20
+  )))
+
+  expect_equal(nrow(no_drugs), 0)
+  expect_equal(nrow(no_fits), 0)
+
+  # Column order differs (the populated path moves `direction` after `drug`),
+  # so compare as sets
+  expect_setequal(names(no_drugs), names(populated))
+  expect_setequal(names(no_fits), names(populated))
+
+  # Guard the specific fields that drifted
+  expect_true("Protein" %in% names(no_fits))
+  expect_false("protein" %in% names(no_fits))
+  expect_true("log2FC" %in% names(no_fits))
+})

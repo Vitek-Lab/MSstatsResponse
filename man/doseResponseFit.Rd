@@ -31,7 +31,17 @@ Recommended for exploratory analysis, but ~2x slower. Default is FALSE.}
 or other datasets where ratios are computed externally. Default is FALSE.}
 }
 \value{
-A data frame with protein-wise F-test results and BH-adjusted p-values.
+A data frame with one row per protein-drug pair and columns:
+\itemize{
+\item Protein, drug: identifiers for the tested pair
+\item direction: "increasing" or "decreasing" (the fitted direction)
+\item SSE_Full, SSE_Null: residual sum of squares for the isotonic and null fits
+\item F_statistic, P_value: F-test of the dose-response trend
+\item log2FC: log2 fold change between the extremes of the fitted curve, signed
+by \code{direction}. Computed as a ratio of fitted values on the ratio scale, or
+as a difference when the response is already log2 (ratio_response = FALSE)
+\item adj.pvalue: BH-adjusted p-value
+}
 }
 \description{
 Fits an isotonic regression model to protein abundance data.

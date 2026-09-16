@@ -14,7 +14,15 @@
 #'   (not log2 values) and skips internal ratio calculation. This is useful for protein turnover data
 #'   or other datasets where ratios are computed externally. Default is FALSE.
 #'
-#' @return A data frame with protein-wise F-test results and BH-adjusted p-values.
+#' @return A data frame with one row per protein-drug pair and columns:
+#'   - Protein, drug: identifiers for the tested pair
+#'   - direction: "increasing" or "decreasing" (the fitted direction)
+#'   - SSE_Full, SSE_Null: residual sum of squares for the isotonic and null fits
+#'   - F_statistic, P_value: F-test of the dose-response trend
+#'   - log2FC: log2 fold change between the extremes of the fitted curve, signed
+#'     by `direction`. Computed as a ratio of fitted values on the ratio scale, or
+#'     as a difference when the response is already log2 (ratio_response = FALSE)
+#'   - adj.pvalue: BH-adjusted p-value
 #'
 #' @examples
 #' # Load example data
@@ -305,7 +313,7 @@ doseResponseFit = function(data, weights = NULL,
   # Return empty data frame if no results
   if (length(all_results) == 0) {
     return(data.frame(
-      protein = character(),
+      Protein = character(),
       drug = character(),
       SSE_Full = numeric(),
       SSE_Null = numeric(),
@@ -313,6 +321,7 @@ doseResponseFit = function(data, weights = NULL,
       P_value = numeric(),
       adj.pvalue = numeric(),
       direction = character(),
+      log2FC = numeric(),
       stringsAsFactors = FALSE
     ))
   }
