@@ -346,7 +346,15 @@ doseResponseFit = function(data, weights = NULL,
 #'   internal ratio calculation. Default is FALSE.
 #' @param test_significance Logical. If TRUE, performs F-test to assess significance.
 #'
-#' @return A list representing the isotonic regression model (class = "isotonic_model").
+#' @return A list of class "isotonic_model" with elements:
+#'   - x: dose values used in the fit (log10-transformed when transform_x = TRUE)
+#'   - y_pred: fitted values, interpolated back onto x
+#'   - original_x, original_y: the dose and response vectors as supplied
+#'   - increasing, transform_x, ratio_y, precalculated_ratios: settings used for the fit
+#'   - k_star: number of unique fitted level sets, i.e. the effective degrees of
+#'     freedom of the fit (equals the number of unique x when there is no pooling)
+#'   - f_test: only when test_significance = TRUE; a list of SSE_Full, SSE_Null,
+#'     F_statistic and P_value
 #'
 #' @importFrom stats pf approx quantile
 fitIsotonicRegression = function(x, y, w = rep(1, length(y)),
@@ -441,6 +449,11 @@ fitIsotonicRegression = function(x, y, w = rep(1, length(y)),
     y_pred_new = stats::approx(x, y_final, xout = x, rule = 2)$y
   }
 
+  # Number of unique fitted level sets (k*): the effective degrees of freedom
+  # of the isotonic fit. When there is no pooling k* = number of unique x;
+  # otherwise k* < that.
+  k_star = length(unique(y_final))
+
   result = list(
     x = x,
     y_pred = y_pred_new,
@@ -449,13 +462,11 @@ fitIsotonicRegression = function(x, y, w = rep(1, length(y)),
     increasing = increasing,
     transform_x = transform_x,
     ratio_y = ratio_y,
-    precalculated_ratios = precalculated_ratios
+    precalculated_ratios = precalculated_ratios,
+    k_star = k_star
   )
 
   if (test_significance) {
-    # Check for k* (when no pooling, k* = k, otherwise k* < k)
-    k_star = length(unique(y_final))
-
     # F-test using original order
     null_model = mean(y)
     null_pred = rep(null_model, length(y))

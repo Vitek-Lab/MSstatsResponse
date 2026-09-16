@@ -34,7 +34,17 @@ internal ratio calculation. Default is FALSE.}
 \item{test_significance}{Logical. If TRUE, performs F-test to assess significance.}
 }
 \value{
-A list representing the isotonic regression model (class = "isotonic_model").
+A list of class "isotonic_model" with elements:
+\itemize{
+\item x: dose values used in the fit (log10-transformed when transform_x = TRUE)
+\item y_pred: fitted values, interpolated back onto x
+\item original_x, original_y: the dose and response vectors as supplied
+\item increasing, transform_x, ratio_y, precalculated_ratios: settings used for the fit
+\item k_star: number of unique fitted level sets, i.e. the effective degrees of
+freedom of the fit (equals the number of unique x when there is no pooling)
+\item f_test: only when test_significance = TRUE; a list of SSE_Full, SSE_Null,
+F_statistic and P_value
+}
 }
 \description{
 Fits an isotonic regression model to protein intensity data with log-transformed drug doses.
