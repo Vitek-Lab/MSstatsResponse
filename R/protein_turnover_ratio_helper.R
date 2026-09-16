@@ -530,13 +530,31 @@ calculateConfidence <- function(weights_df,
 #'   classification. Default = 0.21.
 #' @param target_long Numeric. Upper response target passed to predictIC50(). Default = 0.50.
 #'
-#' @return Data frame with one row per protein containing input columns plus:
-#'   - max_h_frac: per-protein maximum H_frac
+#' @return Data frame with one row per protein. The key results come first:
+#'   - Protein: protein identifier
+#'   - condition: the experiment label carried through the fit (e.g. "Synthesis")
 #'   - half_life: dose (time) at which the response reaches `target_long`, i.e. the
 #'     IC50 predicted at the long target. `NA` when no fit reached that target,
 #'     which includes some rows categorised as `fit` (see Details).
+#'   - max_observed_heavy_ratio: per-protein maximum observed H_frac, taken from
+#'     the raw ratios rather than the fitted curve. Always the heavy channel, even
+#'     when the fit was run on L_frac for a degradation analysis.
 #'   - category: one of `fit`, `medium_lived`, `long_lived`, `fast`, `no_heavy`
 #'   - tier: one of `HIGH`, `MEDIUM`, `LOW`
+#'   - confidence, qc_score: the scores the tier was derived from
+#'
+#'   The remaining columns are the fit diagnostics from `doseResponseFit()`
+#'   (`SSE_Full`, `SSE_Null`, `F_statistic`, `P_value`, `adj.pvalue`) followed by
+#'   the QC and confidence inputs. `direction` and `log2FC` are dropped from this
+#'   output: `direction` is constant for a single-direction turnover fit, and
+#'   `log2FC` reflects the near-zero t=0 baseline rather than the extent of
+#'   turnover. Both are still available from `doseResponseFit()` directly.
+#'
+#'   Five inherited columns are renamed for readability in this output only --
+#'   their source functions are unchanged: `drug` becomes `condition`,
+#'   `observed_cells` becomes `n_observed_light`, `n_max_possible` becomes
+#'   `n_expected_light`, `mean_weight` becomes `mean_peptide_weight`, and
+#'   `pep_factor` becomes `heavy_peptide_factor`.
 #'
 #' @examples
 #' \dontrun{
@@ -550,7 +568,7 @@ calculateConfidence <- function(weights_df,
 #' }
 #'
 #' @export
-#' @importFrom dplyr filter pull group_by summarise rename left_join select any_of all_of mutate case_when
+#' @importFrom dplyr filter pull group_by summarise rename left_join select any_of all_of everything mutate case_when
 #' @importFrom stats quantile
 classifyTurnoverProteins <- function(weights_df,
                                      fit_df,
@@ -608,7 +626,7 @@ classifyTurnoverProteins <- function(weights_df,
   qc_high   <- quantile(out$qc_score[out$category == "no_heavy"], high_quantile, na.rm = TRUE)
   qc_low    <- quantile(out$qc_score[out$category == "no_heavy"], low_quantile,  na.rm = TRUE)
 
-  out %>%
+  out <- out %>%
     mutate(
       tier = case_when(
         category == "no_heavy" & qc_score >= qc_high & observed_cells >= min_obs ~ "HIGH",
@@ -619,4 +637,34 @@ classifyTurnoverProteins <- function(weights_df,
         TRUE                                                                       ~ "LOW"
       )
     )
+
+  # Presentation only: give the inherited columns turnover-appropriate names and
+  # lead with the results users actually read. Done here at the end rather than
+  # upstream so doseResponseFit() and calculateQCScore() keep their own column
+  # names for the chemoproteomics workflow. any_of() so a missing column is
+  # skipped rather than erroring.
+  out <- out %>%
+    rename(any_of(c(
+      condition                = "drug",
+      max_observed_heavy_ratio = "max_h_frac",
+      n_observed_light         = "observed_cells",
+      n_expected_light         = "n_max_possible",
+      mean_peptide_weight      = "mean_weight",
+      heavy_peptide_factor     = "pep_factor"
+    )))
+
+  # direction is constant for a single-direction turnover fit, and log2FC is
+  # dominated by the near-zero t=0 baseline rather than the extent of turnover,
+  # so neither is informative here. doseResponseFit() still returns both.
+  out <- out %>% select(-any_of(c("direction", "log2FC")))
+
+  lead_cols  <- c("Protein", "condition", "half_life", "max_observed_heavy_ratio",
+                  "category", "tier", "confidence", "qc_score")
+  fit_cols   <- c("SSE_Full", "SSE_Null", "F_statistic", "P_value", "adj.pvalue")
+  input_cols <- c("n_light_peptides", "n_observed_light", "n_expected_light",
+                  "mean_peptide_weight", "n_obs", "n_heavy_peptides",
+                  "heavy_peptide_factor")
+
+  # everything() keeps any column not named above rather than dropping it
+  out %>% select(any_of(c(lead_cols, fit_cols, input_cols)), everything())
 }

@@ -37,15 +37,33 @@ classification. Default = 0.21.}
 \item{target_long}{Numeric. Upper response target passed to predictIC50(). Default = 0.50.}
 }
 \value{
-Data frame with one row per protein containing input columns plus:
+Data frame with one row per protein. The key results come first:
 \itemize{
-\item max_h_frac: per-protein maximum H_frac
+\item Protein: protein identifier
+\item condition: the experiment label carried through the fit (e.g. "Synthesis")
 \item half_life: dose (time) at which the response reaches \code{target_long}, i.e. the
 IC50 predicted at the long target. \code{NA} when no fit reached that target,
 which includes some rows categorised as \code{fit} (see Details).
+\item max_observed_heavy_ratio: per-protein maximum observed H_frac, taken from
+the raw ratios rather than the fitted curve. Always the heavy channel, even
+when the fit was run on L_frac for a degradation analysis.
 \item category: one of \code{fit}, \code{medium_lived}, \code{long_lived}, \code{fast}, \code{no_heavy}
 \item tier: one of \code{HIGH}, \code{MEDIUM}, \code{LOW}
+\item confidence, qc_score: the scores the tier was derived from
 }
+
+The remaining columns are the fit diagnostics from \code{doseResponseFit()}
+(\code{SSE_Full}, \code{SSE_Null}, \code{F_statistic}, \code{P_value}, \code{adj.pvalue}) followed by
+the QC and confidence inputs. \code{direction} and \code{log2FC} are dropped from this
+output: \code{direction} is constant for a single-direction turnover fit, and
+\code{log2FC} reflects the near-zero t=0 baseline rather than the extent of
+turnover. Both are still available from \code{doseResponseFit()} directly.
+
+Five inherited columns are renamed for readability in this output only --
+their source functions are unchanged: \code{drug} becomes \code{condition},
+\code{observed_cells} becomes \code{n_observed_light}, \code{n_max_possible} becomes
+\code{n_expected_light}, \code{mean_weight} becomes \code{mean_peptide_weight}, and
+\code{pep_factor} becomes \code{heavy_peptide_factor}.
 }
 \description{
 Assigns each protein a biological \code{category} describing its turnover
