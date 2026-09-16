@@ -49,7 +49,7 @@ transitions, etc.). Default = max (takes highest signal).}
 \item{normalize_tracer}{Logical. If TRUE, normalize by tracer incorporation. Default = FALSE}
 
 \item{tracer_constants}{Named numeric vector. Tracer constants for each timepoint.
-Required if normalize_tracer = TRUE}
+Required if normalize_tracer = TRUE. Default = NULL}
 }
 \value{
 Data frame with columns: Protein, BaseSequence, TimeVal, Run, Heavy, Light, Total, H_frac, L_frac

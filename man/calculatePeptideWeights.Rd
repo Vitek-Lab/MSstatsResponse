@@ -38,8 +38,11 @@ Input data frame with added columns:
 \item n_obs: Total number of observations for this peptide
 \item k_obs: Number of non-zero timepoints where this peptide is detected
 \item coverage_per_peptide: k_obs / n (per-peptide detection proportion)
+\item peptide_median_light: median light-channel intensity for this peptide
 \item p_protein: Protein-level mean detection rate across all its peptides
 \item coverage_score: P(X <= k_obs | n, p_protein) — binomial CDF coverage score
+\item peptide_rank: dense rank of the peptide within its protein by
+descending peptide_median_light (rank 1 = most intense)
 \item light_intensity_score: 1 (no filter) or binary top-N indicator (per protein)
 \item monotonicity_score: Kendall correlation (time vs response), floored at 0
 \item validity_flag: 0 if any invalid values, 1 otherwise

@@ -40,6 +40,9 @@ classification. Default = 0.21.}
 Data frame with one row per protein containing input columns plus:
 \itemize{
 \item max_h_frac: per-protein maximum H_frac
+\item half_life: dose (time) at which the response reaches \code{target_long}, i.e. the
+IC50 predicted at the long target. \code{NA} when no fit reached that target,
+which includes some rows categorised as \code{fit} (see Details).
 \item category: one of \code{fit}, \code{medium_lived}, \code{long_lived}, \code{fast}, \code{no_heavy}
 \item tier: one of \code{HIGH}, \code{MEDIUM}, \code{LOW}
 }
@@ -52,12 +55,23 @@ Combines QC + confidence + IC50 predictions in one call.
 \details{
 Categories:
 \itemize{
-\item \code{fit}: IC50 reached at the long-target response (default 0.50)
+\item \code{fit}: IC50 reached at the long-target response (default 0.50). Also catches
+proteins that reached neither target but whose max H_frac fell in the
+[0.35, 0.5] band -- see the note below.
 \item \code{medium_lived}: reached the short target (0.21) but not the long target
-\item \code{long_lived}: failed both targets and max H_frac stayed below 0.5
+\item \code{long_lived}: failed both targets and max H_frac stayed below 0.35
 \item \code{fast}: failed both targets but max H_frac exceeds 0.5 (IC50 below observed range)
 \item \code{no_heavy}: no fit was possible (no paired heavy peptides)
 }
+
+Note on the [0.35, 0.5] band: \code{long_lived} requires max H_frac < 0.35 and \code{fast}
+requires max H_frac > 0.5, so a protein that reached neither target with a max
+H_frac between those cutoffs falls through to \code{fit}. This happens when the pooled
+isotonic fit and the per-observation maximum disagree -- for example when one
+peptide incorporates strongly while the protein's other peptides stay flat, so the
+fitted curve never crosses 0.21 even though a raw H_frac value does. Such rows are
+labelled \code{fit} but carry \code{half_life = NA}, so test \code{is.na(half_life)} rather than
+\code{category == "fit"} when you need proteins with an actual IC50 estimate.
 
 Tiers use percentile cutoffs computed from the input data. Proteins with a
 fit are tiered on \code{confidence}; \code{no_heavy} proteins are tiered on \code{qc_score}.

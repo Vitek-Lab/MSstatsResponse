@@ -16,7 +16,7 @@
 #'   transitions, etc.). Default = max (takes highest signal).
 #' @param normalize_tracer Logical. If TRUE, normalize by tracer incorporation. Default = FALSE
 #' @param tracer_constants Named numeric vector. Tracer constants for each timepoint.
-#'   Required if normalize_tracer = TRUE
+#'   Required if normalize_tracer = TRUE. Default = NULL
 #'
 #' @return Data frame with columns: Protein, BaseSequence, TimeVal, Run, Heavy, Light, Total, H_frac, L_frac
 #'
@@ -227,8 +227,11 @@ kendall_monotonicity <- function(time, response) {
 #'   - n_obs: Total number of observations for this peptide
 #'   - k_obs: Number of non-zero timepoints where this peptide is detected
 #'   - coverage_per_peptide: k_obs / n (per-peptide detection proportion)
+#'   - peptide_median_light: median light-channel intensity for this peptide
 #'   - p_protein: Protein-level mean detection rate across all its peptides
 #'   - coverage_score: P(X <= k_obs | n, p_protein) — binomial CDF coverage score
+#'   - peptide_rank: dense rank of the peptide within its protein by
+#'     descending peptide_median_light (rank 1 = most intense)
 #'   - light_intensity_score: 1 (no filter) or binary top-N indicator (per protein)
 #'   - monotonicity_score: Kendall correlation (time vs response), floored at 0
 #'   - validity_flag: 0 if any invalid values, 1 otherwise
@@ -495,11 +498,22 @@ calculateConfidence <- function(weights_df,
 #' Combines QC + confidence + IC50 predictions in one call.
 #'
 #' Categories:
-#'   - `fit`: IC50 reached at the long-target response (default 0.50)
+#'   - `fit`: IC50 reached at the long-target response (default 0.50). Also catches
+#'     proteins that reached neither target but whose max H_frac fell in the
+#'     \[0.35, 0.5\] band -- see the note below.
 #'   - `medium_lived`: reached the short target (0.21) but not the long target
-#'   - `long_lived`: failed both targets and max H_frac stayed below 0.5
+#'   - `long_lived`: failed both targets and max H_frac stayed below 0.35
 #'   - `fast`: failed both targets but max H_frac exceeds 0.5 (IC50 below observed range)
 #'   - `no_heavy`: no fit was possible (no paired heavy peptides)
+#'
+#' Note on the \[0.35, 0.5\] band: `long_lived` requires max H_frac < 0.35 and `fast`
+#' requires max H_frac > 0.5, so a protein that reached neither target with a max
+#' H_frac between those cutoffs falls through to `fit`. This happens when the pooled
+#' isotonic fit and the per-observation maximum disagree -- for example when one
+#' peptide incorporates strongly while the protein's other peptides stay flat, so the
+#' fitted curve never crosses 0.21 even though a raw H_frac value does. Such rows are
+#' labelled `fit` but carry `half_life = NA`, so test `is.na(half_life)` rather than
+#' `category == "fit"` when you need proteins with an actual IC50 estimate.
 #'
 #' Tiers use percentile cutoffs computed from the input data. Proteins with a
 #' fit are tiered on `confidence`; `no_heavy` proteins are tiered on `qc_score`.
@@ -518,6 +532,9 @@ calculateConfidence <- function(weights_df,
 #'
 #' @return Data frame with one row per protein containing input columns plus:
 #'   - max_h_frac: per-protein maximum H_frac
+#'   - half_life: dose (time) at which the response reaches `target_long`, i.e. the
+#'     IC50 predicted at the long target. `NA` when no fit reached that target,
+#'     which includes some rows categorised as `fit` (see Details).
 #'   - category: one of `fit`, `medium_lived`, `long_lived`, `fast`, `no_heavy`
 #'   - tier: one of `HIGH`, `MEDIUM`, `LOW`
 #'
@@ -533,7 +550,7 @@ calculateConfidence <- function(weights_df,
 #' }
 #'
 #' @export
-#' @importFrom dplyr filter pull group_by summarise rename left_join select any_of mutate case_when
+#' @importFrom dplyr filter pull group_by summarise rename left_join select any_of all_of mutate case_when
 #' @importFrom stats quantile
 classifyTurnoverProteins <- function(weights_df,
                                      fit_df,
@@ -551,9 +568,16 @@ classifyTurnoverProteins <- function(weights_df,
                 precalculated_ratios = TRUE, bootstrap = FALSE,
                 target_response = target)
   }
-  short_NA <- predict_at(target_short) %>% filter(is.na(IC50)) %>% pull(Protein)
-  long_NA  <- predict_at(target_long)  %>% filter(is.na(IC50)) %>% pull(Protein)
+  short_pred <- predict_at(target_short)
+  long_pred  <- predict_at(target_long)
+
+  short_NA <- short_pred %>% filter(is.na(IC50)) %>% pull(Protein)
+  long_NA  <- long_pred  %>% filter(is.na(IC50)) %>% pull(Protein)
   long_lived <- intersect(short_NA, long_NA)
+
+  # half_life: dose (time) at which the heavy fraction reaches target_long
+  half_life_df <- long_pred %>%
+    select(any_of(c("Protein", "drug")), half_life = IC50)
 
   max_hfrac <- weights_df %>%
     group_by(Protein) %>%
@@ -562,7 +586,13 @@ classifyTurnoverProteins <- function(weights_df,
   out <- qc_df %>%
     rename(Protein = PROTEIN) %>%
     left_join(conf_df %>% select(-any_of("qc_score")), by = "Protein") %>%
-    left_join(max_hfrac, by = "Protein") %>%
+    left_join(max_hfrac, by = "Protein")
+
+  # join on drug as well when the fit carried it through, so one row per protein-drug
+  hl_keys <- intersect(c("Protein", "drug"), names(out))
+  out <- out %>%
+    left_join(half_life_df %>% select(all_of(c(hl_keys, "half_life"))),
+              by = hl_keys) %>%
     mutate(
       category = case_when(
         is.na(confidence)                                       ~ "no_heavy",
