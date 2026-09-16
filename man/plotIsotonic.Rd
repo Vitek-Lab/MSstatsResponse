@@ -12,6 +12,7 @@ plotIsotonic(
   precalculated_ratios = FALSE,
   show_ic50 = FALSE,
   target_response = 0.5,
+  ic50_label = NULL,
   drug_name = NULL,
   protein_name = NULL,
   x_lab = NULL,
@@ -40,6 +41,11 @@ plotIsotonic(
 \item{show_ic50}{Logical. If TRUE, adds vertical line and annotation for IC50.}
 
 \item{target_response}{Numeric. Target response level for IC50/EC50. Default = 0.5.}
+
+\item{ic50_label}{Character. Custom text for the IC50 annotation, replacing the
+default "IC50" (or "pIC50" when the dose is log-transformed). The value is
+still appended, so ic50_label = "half-life" annotates "half-life = 12.6".
+Default = NULL, which keeps the automatic labelling.}
 
 \item{drug_name}{Drug name for plotting data.}
 

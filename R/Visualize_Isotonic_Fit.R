@@ -12,6 +12,10 @@
 #' @param transform_dose Logical. If TRUE, applies log10(dose + 1). Default is TRUE.
 #' @param show_ic50 Logical. If TRUE, adds vertical line and annotation for IC50.
 #' @param target_response Numeric. Target response level for IC50/EC50 calculation. Default = 0.5.
+#' @param ic50_label Character. Custom text for the IC50 annotation, replacing the
+#'   default "IC50" (or "pIC50" when the dose is log-transformed). The value is
+#'   still appended, so ic50_label = "half-life" annotates "half-life = 12.6".
+#'   Default = NULL, which keeps the automatic labelling.
 #' @param add_ci Logical. Include IC50 95% confidence interval bands if TRUE. Default is FALSE.
 #' @param n_samples Number of bootstrap samples if including confidence intervals. Default is 1000.
 #' @param alpha Alpha level for confidence intervals. Default is 0.10.
@@ -89,6 +93,7 @@ visualizeResponseProtein = function(data,
                                     transform_dose = TRUE,
                                     show_ic50 = TRUE,
                                     target_response = 0.5,
+                                    ic50_label = NULL,
                                     add_ci = FALSE,
                                     n_samples = 1000,
                                     alpha = 0.10,
@@ -188,6 +193,7 @@ visualizeResponseProtein = function(data,
     precalculated_ratios = precalculated_ratios,
     show_ic50 = show_ic50,
     target_response = target_response,
+    ic50_label = ic50_label,
     ci = ci_bounds,
     drug_name = drug_name,
     protein_name = protein_name,
@@ -211,6 +217,10 @@ visualizeResponseProtein = function(data,
 #' @param precalculated_ratios Logical. If TRUE, response values are pre-calculated ratios. Default is FALSE.
 #' @param show_ic50 Logical. If TRUE, adds vertical line and annotation for IC50.
 #' @param target_response Numeric. Target response level for IC50/EC50. Default = 0.5.
+#' @param ic50_label Character. Custom text for the IC50 annotation, replacing the
+#'   default "IC50" (or "pIC50" when the dose is log-transformed). The value is
+#'   still appended, so ic50_label = "half-life" annotates "half-life = 12.6".
+#'   Default = NULL, which keeps the automatic labelling.
 #' @param drug_name Drug name for plotting data.
 #' @param protein_name Protein name for plot.
 #' @param x_lab Character. Label for x-axis. If NULL, uses default based on transform_x.
@@ -237,6 +247,7 @@ plotIsotonic = function(fit,
                         precalculated_ratios = FALSE,
                         show_ic50 = FALSE,
                         target_response = 0.5,
+                        ic50_label = NULL,
                         drug_name = NULL,
                         protein_name = NULL,
                         x_lab = NULL,
@@ -399,10 +410,12 @@ plotIsotonic = function(fit,
     
     if (transform_x) {
       ic50_pred_transform = -log10(ic50_pred)
-      ic50_label = paste("pIC50 =", round(ic50_pred_transform, 2))
+      label_text = if (is.null(ic50_label)) "pIC50" else ic50_label
+      annotation_label = paste(label_text, "=", round(ic50_pred_transform, 2))
       x_pos = log10(ic50_pred)
     } else {
-      ic50_label = paste("IC50 =", round(ic50_pred, 2))
+      label_text = if (is.null(ic50_label)) "IC50" else ic50_label
+      annotation_label = paste(label_text, "=", round(ic50_pred, 2))
       x_pos = ic50_pred
     }
     
@@ -410,7 +423,7 @@ plotIsotonic = function(fit,
       ggplot2::geom_point(ggplot2::aes(x = x_pos, y = y_ic50),
                           shape = 23, size = 3.5, fill = "red", color = "black") +
       ggplot2::annotate("text", x = x_pos + 0.35, y = y_ic50,
-                        label = ic50_label,
+                        label = annotation_label,
                         vjust = -0.5, hjust = 0.5, size = 4, fontface = "bold")
     
     # Optional display IC50 confidence interval

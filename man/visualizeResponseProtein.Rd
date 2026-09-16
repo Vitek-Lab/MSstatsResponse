@@ -15,6 +15,7 @@ visualizeResponseProtein(
   transform_dose = TRUE,
   show_ic50 = TRUE,
   target_response = 0.5,
+  ic50_label = NULL,
   add_ci = FALSE,
   n_samples = 1000,
   alpha = 0.1,
@@ -45,6 +46,11 @@ visualizeResponseProtein(
 \item{show_ic50}{Logical. If TRUE, adds vertical line and annotation for IC50.}
 
 \item{target_response}{Numeric. Target response level for IC50/EC50 calculation. Default = 0.5.}
+
+\item{ic50_label}{Character. Custom text for the IC50 annotation, replacing the
+default "IC50" (or "pIC50" when the dose is log-transformed). The value is
+still appended, so ic50_label = "half-life" annotates "half-life = 12.6".
+Default = NULL, which keeps the automatic labelling.}
 
 \item{add_ci}{Logical. Include IC50 95\% confidence interval bands if TRUE. Default is FALSE.}
 
