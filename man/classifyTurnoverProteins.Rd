@@ -12,7 +12,8 @@ classifyTurnoverProteins(
   high_quantile = 0.85,
   low_quantile = 0.25,
   min_obs = 3,
-  target_short = 0.21,
+  long_lived_cutoff = 0.3,
+  fast_cutoff = 0.9,
   target_long = 0.5
 )
 }
@@ -31,10 +32,14 @@ classifyTurnoverProteins(
 
 \item{min_obs}{Numeric. Minimum observations required for HIGH tier. Default = 3.}
 
-\item{target_short}{Numeric. Lower response target passed to predictIC50() for lifetime
-classification. Default = 0.21.}
+\item{long_lived_cutoff}{Numeric. \code{max_fitted_ratio} below this is \code{long_lived}.
+Default = 0.30.}
 
-\item{target_long}{Numeric. Upper response target passed to predictIC50(). Default = 0.50.}
+\item{fast_cutoff}{Numeric. \code{max_fitted_ratio} above this is \code{fast}. Default = 0.90.
+Values between the two cutoffs, inclusive, are \code{medium_lived}.}
+
+\item{target_long}{Numeric. Response target passed to predictIC50() to compute
+\code{half_life}. No longer affects \code{category}. Default = 0.50.}
 }
 \value{
 Data frame with one row per protein. The key results come first:
@@ -47,7 +52,18 @@ which includes some rows categorised as \code{fit} (see Details).
 \item max_observed_heavy_ratio: per-protein maximum observed H_frac, taken from
 the raw ratios rather than the fitted curve. Always the heavy channel, even
 when the fit was run on L_frac for a degradation analysis.
-\item category: one of \code{fit}, \code{medium_lived}, \code{long_lived}, \code{fast}, \code{no_heavy}
+\item max_fitted_ratio: the same quantity read off the isotonic curve instead of
+the raw points, carried through from \code{doseResponseFit()}. Because it comes
+from the fit, it is on the scale of whatever \code{response} column was fit --
+H_frac for a synthesis run, L_frac for a degradation run. For a synthesis
+fit the two columns are directly comparable and the fitted value is the
+lower of the pair, since the pooled curve is pulled down by flat peptides
+that a single raw maximum ignores; for a degradation fit they are on
+different channels and should not be compared. This is the column the
+\code{category} cutoffs are applied to, so a large gap between the two means
+the category reflects the pooled fit rather than one peptide's best
+observation.
+\item category: one of \code{long_lived}, \code{medium_lived}, \code{fast}, \code{no_heavy}
 \item tier: one of \code{HIGH}, \code{MEDIUM}, \code{LOW}
 \item confidence, qc_score: the scores the tier was derived from
 }
@@ -68,28 +84,43 @@ their source functions are unchanged: \code{drug} becomes \code{condition},
 \description{
 Assigns each protein a biological \code{category} describing its turnover
 behavior and a \code{tier} (HIGH / MEDIUM / LOW) summarizing scoring confidence.
-Combines QC + confidence + IC50 predictions in one call.
+Combines QC + confidence + the fitted turnover curve in one call.
 }
 \details{
-Categories:
+Categories are read off \code{max_fitted_ratio} -- the maximum of the isotonic
+curve from \code{doseResponseFit()}, i.e. the highest heavy fraction the fit
+reaches at any timepoint. The three fitted bands are exhaustive:
 \itemize{
-\item \code{fit}: IC50 reached at the long-target response (default 0.50). Also catches
-proteins that reached neither target but whose max H_frac fell in the
-[0.35, 0.5] band -- see the note below.
-\item \code{medium_lived}: reached the short target (0.21) but not the long target
-\item \code{long_lived}: failed both targets and max H_frac stayed below 0.35
-\item \code{fast}: failed both targets but max H_frac exceeds 0.5 (IC50 below observed range)
-\item \code{no_heavy}: no fit was possible (no paired heavy peptides)
+\item \code{long_lived}: \code{max_fitted_ratio} < \code{long_lived_cutoff} (default 0.30)
+\item \code{medium_lived}: \code{max_fitted_ratio} in [\code{long_lived_cutoff},
+\code{fast_cutoff}] (default 0.30 to 0.90, both inclusive)
+\item \code{fast}: \code{max_fitted_ratio} > \code{fast_cutoff} (default 0.90)
+\item \code{no_heavy}: no fit was available, so there is no curve to read
 }
 
-Note on the [0.35, 0.5] band: \code{long_lived} requires max H_frac < 0.35 and \code{fast}
-requires max H_frac > 0.5, so a protein that reached neither target with a max
-H_frac between those cutoffs falls through to \code{fit}. This happens when the pooled
-isotonic fit and the per-observation maximum disagree -- for example when one
-peptide incorporates strongly while the protein's other peptides stay flat, so the
-fitted curve never crosses 0.21 even though a raw H_frac value does. Such rows are
-labelled \code{fit} but carry \code{half_life = NA}, so test \code{is.na(half_life)} rather than
-\code{category == "fit"} when you need proteins with an actual IC50 estimate.
+The cutoffs are applied to the fitted curve, not to the raw
+\code{max_observed_heavy_ratio}. The fitted maximum is always the lower of the
+two, because a pooled curve is pulled down by flat peptides that a single
+raw maximum ignores, so a protein can sit in a lower band than its raw
+values alone would suggest. That is deliberate: it is the pooled fit, not
+one peptide's best observation, that the category describes.
+
+What \code{no_heavy} actually tests is \code{is.na(confidence)}, which means the
+protein has no row in \code{fit_df}. That is usually because it had no detectable
+heavy peptides, but it also catches proteins whose heavy data existed and
+was too sparse or degenerate to fit (for example heavy detected at a single
+timepoint, which \code{doseResponseFit()} drops with a warning). The two are
+distinguishable in the output: \code{max_observed_heavy_ratio} is \code{NA} for a
+protein that never reached the ratio table at all, and a real number for one
+whose heavy data was measured but unusable. Note that \code{n_heavy_peptides} is
+\code{NA} for both, since it arrives via \code{conf_df}, so it cannot be used to tell
+them apart.
+
+\code{half_life} is the time to reach \code{target_long} (default 0.50) and is
+independent of the category bands. A \code{medium_lived} protein whose
+\code{max_fitted_ratio} falls between \code{long_lived_cutoff} and \code{target_long}
+never reaches that target, so it carries \code{half_life = NA}; test
+\code{is.na(half_life)} when you need proteins with an actual IC50 estimate.
 
 Tiers use percentile cutoffs computed from the input data. Proteins with a
 fit are tiered on \code{confidence}; \code{no_heavy} proteins are tiered on \code{qc_score}.

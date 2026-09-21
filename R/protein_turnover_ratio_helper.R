@@ -495,25 +495,40 @@ calculateConfidence <- function(weights_df,
 #'
 #' Assigns each protein a biological `category` describing its turnover
 #' behavior and a `tier` (HIGH / MEDIUM / LOW) summarizing scoring confidence.
-#' Combines QC + confidence + IC50 predictions in one call.
+#' Combines QC + confidence + the fitted turnover curve in one call.
 #'
-#' Categories:
-#'   - `fit`: IC50 reached at the long-target response (default 0.50). Also catches
-#'     proteins that reached neither target but whose max H_frac fell in the
-#'     \[0.35, 0.5\] band -- see the note below.
-#'   - `medium_lived`: reached the short target (0.21) but not the long target
-#'   - `long_lived`: failed both targets and max H_frac stayed below 0.35
-#'   - `fast`: failed both targets but max H_frac exceeds 0.5 (IC50 below observed range)
-#'   - `no_heavy`: no fit was possible (no paired heavy peptides)
+#' Categories are read off `max_fitted_ratio` -- the maximum of the isotonic
+#' curve from `doseResponseFit()`, i.e. the highest heavy fraction the fit
+#' reaches at any timepoint. The three fitted bands are exhaustive:
+#'   - `long_lived`: `max_fitted_ratio` < `long_lived_cutoff` (default 0.30)
+#'   - `medium_lived`: `max_fitted_ratio` in \[`long_lived_cutoff`,
+#'     `fast_cutoff`\] (default 0.30 to 0.90, both inclusive)
+#'   - `fast`: `max_fitted_ratio` > `fast_cutoff` (default 0.90)
+#'   - `no_heavy`: no fit was available, so there is no curve to read
 #'
-#' Note on the \[0.35, 0.5\] band: `long_lived` requires max H_frac < 0.35 and `fast`
-#' requires max H_frac > 0.5, so a protein that reached neither target with a max
-#' H_frac between those cutoffs falls through to `fit`. This happens when the pooled
-#' isotonic fit and the per-observation maximum disagree -- for example when one
-#' peptide incorporates strongly while the protein's other peptides stay flat, so the
-#' fitted curve never crosses 0.21 even though a raw H_frac value does. Such rows are
-#' labelled `fit` but carry `half_life = NA`, so test `is.na(half_life)` rather than
-#' `category == "fit"` when you need proteins with an actual IC50 estimate.
+#' The cutoffs are applied to the fitted curve, not to the raw
+#' `max_observed_heavy_ratio`. The fitted maximum is always the lower of the
+#' two, because a pooled curve is pulled down by flat peptides that a single
+#' raw maximum ignores, so a protein can sit in a lower band than its raw
+#' values alone would suggest. That is deliberate: it is the pooled fit, not
+#' one peptide's best observation, that the category describes.
+#'
+#' What `no_heavy` actually tests is `is.na(confidence)`, which means the
+#' protein has no row in `fit_df`. That is usually because it had no detectable
+#' heavy peptides, but it also catches proteins whose heavy data existed and
+#' was too sparse or degenerate to fit (for example heavy detected at a single
+#' timepoint, which `doseResponseFit()` drops with a warning). The two are
+#' distinguishable in the output: `max_observed_heavy_ratio` is `NA` for a
+#' protein that never reached the ratio table at all, and a real number for one
+#' whose heavy data was measured but unusable. Note that `n_heavy_peptides` is
+#' `NA` for both, since it arrives via `conf_df`, so it cannot be used to tell
+#' them apart.
+#'
+#' `half_life` is the time to reach `target_long` (default 0.50) and is
+#' independent of the category bands. A `medium_lived` protein whose
+#' `max_fitted_ratio` falls between `long_lived_cutoff` and `target_long`
+#' never reaches that target, so it carries `half_life = NA`; test
+#' `is.na(half_life)` when you need proteins with an actual IC50 estimate.
 #'
 #' Tiers use percentile cutoffs computed from the input data. Proteins with a
 #' fit are tiered on `confidence`; `no_heavy` proteins are tiered on `qc_score`.
@@ -526,9 +541,12 @@ calculateConfidence <- function(weights_df,
 #' @param high_quantile Numeric. Upper percentile cutoff for HIGH tier. Default = 0.85 (top 15%).
 #' @param low_quantile Numeric. Lower percentile cutoff for LOW tier. Default = 0.25 (bottom 25%).
 #' @param min_obs Numeric. Minimum observations required for HIGH tier. Default = 3.
-#' @param target_short Numeric. Lower response target passed to predictIC50() for lifetime
-#'   classification. Default = 0.21.
-#' @param target_long Numeric. Upper response target passed to predictIC50(). Default = 0.50.
+#' @param long_lived_cutoff Numeric. `max_fitted_ratio` below this is `long_lived`.
+#'   Default = 0.30.
+#' @param fast_cutoff Numeric. `max_fitted_ratio` above this is `fast`. Default = 0.90.
+#'   Values between the two cutoffs, inclusive, are `medium_lived`.
+#' @param target_long Numeric. Response target passed to predictIC50() to compute
+#'   `half_life`. No longer affects `category`. Default = 0.50.
 #'
 #' @return Data frame with one row per protein. The key results come first:
 #'   - Protein: protein identifier
@@ -539,7 +557,18 @@ calculateConfidence <- function(weights_df,
 #'   - max_observed_heavy_ratio: per-protein maximum observed H_frac, taken from
 #'     the raw ratios rather than the fitted curve. Always the heavy channel, even
 #'     when the fit was run on L_frac for a degradation analysis.
-#'   - category: one of `fit`, `medium_lived`, `long_lived`, `fast`, `no_heavy`
+#'   - max_fitted_ratio: the same quantity read off the isotonic curve instead of
+#'     the raw points, carried through from `doseResponseFit()`. Because it comes
+#'     from the fit, it is on the scale of whatever `response` column was fit --
+#'     H_frac for a synthesis run, L_frac for a degradation run. For a synthesis
+#'     fit the two columns are directly comparable and the fitted value is the
+#'     lower of the pair, since the pooled curve is pulled down by flat peptides
+#'     that a single raw maximum ignores; for a degradation fit they are on
+#'     different channels and should not be compared. This is the column the
+#'     `category` cutoffs are applied to, so a large gap between the two means
+#'     the category reflects the pooled fit rather than one peptide's best
+#'     observation.
+#'   - category: one of `long_lived`, `medium_lived`, `fast`, `no_heavy`
 #'   - tier: one of `HIGH`, `MEDIUM`, `LOW`
 #'   - confidence, qc_score: the scores the tier was derived from
 #'
@@ -577,21 +606,18 @@ classifyTurnoverProteins <- function(weights_df,
                                      high_quantile = 0.85,
                                      low_quantile  = 0.25,
                                      min_obs       = 3,
-                                     target_short  = 0.21,
+                                     long_lived_cutoff = 0.30,
+                                     fast_cutoff       = 0.90,
                                      target_long   = 0.50) {
 
-  predict_at <- function(target) {
-    predictIC50(weights_df,
-                increasing = TRUE, transform_dose = FALSE,
-                precalculated_ratios = TRUE, bootstrap = FALSE,
-                target_response = target)
-  }
-  short_pred <- predict_at(target_short)
-  long_pred  <- predict_at(target_long)
-
-  short_NA <- short_pred %>% filter(is.na(IC50)) %>% pull(Protein)
-  long_NA  <- long_pred  %>% filter(is.na(IC50)) %>% pull(Protein)
-  long_lived <- intersect(short_NA, long_NA)
+  # Only the long target is predicted. The categories now read max_fitted_ratio
+  # directly, so the former short-target prediction (and the IC50-membership
+  # sets derived from both) is no longer needed -- one predictIC50() pass
+  # instead of two.
+  long_pred <- predictIC50(weights_df,
+                           increasing = TRUE, transform_dose = FALSE,
+                           precalculated_ratios = TRUE, bootstrap = FALSE,
+                           target_response = target_long)
 
   # half_life: dose (time) at which the heavy fraction reaches target_long
   half_life_df <- long_pred %>%
@@ -606,6 +632,14 @@ classifyTurnoverProteins <- function(weights_df,
     left_join(conf_df %>% select(-any_of("qc_score")), by = "Protein") %>%
     left_join(max_hfrac, by = "Protein")
 
+  # The category cutoffs read this column, so fail loudly rather than erroring
+  # deep inside case_when() when handed a fit_df from before it was added.
+  if (!"max_fitted_ratio" %in% names(out)) {
+    stop("conf_df/fit_df is missing 'max_fitted_ratio', which the category ",
+         "cutoffs are applied to. Re-run doseResponseFit() and ",
+         "calculateConfidence() to regenerate it.")
+  }
+
   # join on drug as well when the fit carried it through, so one row per protein-drug
   hl_keys <- intersect(c("Protein", "drug"), names(out))
   out <- out %>%
@@ -613,11 +647,14 @@ classifyTurnoverProteins <- function(weights_df,
               by = hl_keys) %>%
     mutate(
       category = case_when(
-        is.na(confidence)                                       ~ "no_heavy",
-        Protein %in% long_lived & max_h_frac > 0.5              ~ "fast",
-        Protein %in% long_lived & max_h_frac < 0.35           ~ "long_lived",
-        Protein %in% long_NA & !(Protein %in% short_NA)         ~ "medium_lived",
-        TRUE                                                     ~ "fit"
+        is.na(confidence)                    ~ "no_heavy",
+        max_fitted_ratio > fast_cutoff       ~ "fast",
+        max_fitted_ratio < long_lived_cutoff ~ "long_lived",
+        # Exhaustive by construction: anything with a fit that is neither above
+        # fast_cutoff nor below long_lived_cutoff lies between them, inclusive.
+        # A degenerate fit whose values are all non-finite yields -Inf here and
+        # so lands in long_lived rather than a silent fall-through.
+        TRUE                                 ~ "medium_lived"
       )
     )
 
@@ -659,7 +696,7 @@ classifyTurnoverProteins <- function(weights_df,
   out <- out %>% select(-any_of(c("direction", "log2FC")))
 
   lead_cols  <- c("Protein", "condition", "half_life", "max_observed_heavy_ratio",
-                  "category", "tier", "confidence", "qc_score")
+                  "max_fitted_ratio", "category", "tier", "confidence", "qc_score")
   fit_cols   <- c("SSE_Full", "SSE_Null", "F_statistic", "P_value", "adj.pvalue")
   input_cols <- c("n_light_peptides", "n_observed_light", "n_expected_light",
                   "mean_peptide_weight", "n_obs", "n_heavy_peptides",
