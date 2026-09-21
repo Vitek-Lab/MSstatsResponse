@@ -22,6 +22,12 @@
 #'   - log2FC: log2 fold change between the extremes of the fitted curve, signed
 #'     by `direction`. Computed as a ratio of fitted values on the ratio scale, or
 #'     as a difference when the response is already log2 (ratio_response = FALSE)
+#'   - max_fitted_ratio: maximum fitted value of the isotonic curve, on the scale
+#'     of the `response` column that was fit. For an increasing fit this is the
+#'     plateau the curve reaches; for a decreasing fit it is the starting level.
+#'     Taken over the rows included in the fit, which for a chemoproteomics run
+#'     means DMSO plus the drug being tested -- the same set `log2FC` spans.
+#'     Under `increasing = "both"` it belongs to whichever direction was selected.
 #'   - adj.pvalue: BH-adjusted p-value
 #'
 #' @examples
@@ -116,6 +122,7 @@ doseResponseFit = function(data, weights = NULL,
       adj.pvalue = numeric(),
       direction = character(),
       log2FC = numeric(),
+      max_fitted_ratio = numeric(),
       stringsAsFactors = FALSE
     ))
   }
@@ -198,6 +205,10 @@ doseResponseFit = function(data, weights = NULL,
             results_dec$log2FC = log2FC_dec
             results_inc$log2FC = log2FC_inc
 
+            # Retained rather than recomputed: the same max already feeds log2FC
+            results_dec$max_fitted_ratio = max(fit_dec$y_pred, na.rm = TRUE)
+            results_inc$max_fitted_ratio = max(fit_inc$y_pred, na.rm = TRUE)
+
             # Add both to results list
             results_list[[length(results_list) + 1]] = results_dec
             results_list[[length(results_list) + 1]] = results_inc
@@ -234,6 +245,8 @@ doseResponseFit = function(data, weights = NULL,
                 results_temp$log2FC = max(fit$y_pred, na.rm = TRUE) - min(fit$y_pred, na.rm = TRUE)
               }
             }
+
+            results_temp$max_fitted_ratio = max(fit$y_pred, na.rm = TRUE)
 
             results_temp = results_temp[, c("Protein", "drug", "direction",
                                             setdiff(names(results_temp), c("Protein", "drug", "direction")))]
@@ -322,6 +335,7 @@ doseResponseFit = function(data, weights = NULL,
       adj.pvalue = numeric(),
       direction = character(),
       log2FC = numeric(),
+      max_fitted_ratio = numeric(),
       stringsAsFactors = FALSE
     ))
   }

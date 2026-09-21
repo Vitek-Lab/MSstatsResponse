@@ -40,6 +40,12 @@ A data frame with one row per protein-drug pair and columns:
 \item log2FC: log2 fold change between the extremes of the fitted curve, signed
 by \code{direction}. Computed as a ratio of fitted values on the ratio scale, or
 as a difference when the response is already log2 (ratio_response = FALSE)
+\item max_fitted_ratio: maximum fitted value of the isotonic curve, on the scale
+of the \code{response} column that was fit. For an increasing fit this is the
+plateau the curve reaches; for a decreasing fit it is the starting level.
+Taken over the rows included in the fit, which for a chemoproteomics run
+means DMSO plus the drug being tested -- the same set \code{log2FC} spans.
+Under \code{increasing = "both"} it belongs to whichever direction was selected.
 \item adj.pvalue: BH-adjusted p-value
 }
 }
