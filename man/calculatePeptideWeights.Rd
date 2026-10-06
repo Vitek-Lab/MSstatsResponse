@@ -40,7 +40,7 @@ Input data frame with added columns:
 \item coverage_per_peptide: k_obs / n (per-peptide detection proportion)
 \item peptide_median_light: median light-channel intensity for this peptide
 \item p_protein: Protein-level mean detection rate across all its peptides
-\item coverage_score: P(X <= k_obs | n, p_protein) — binomial CDF coverage score
+\item coverage_score: min(1, k_obs / (n * p_protein)) — detection count relative to the protein average, capped at 1
 \item peptide_rank: dense rank of the peptide within its protein by
 descending peptide_median_light (rank 1 = most intense)
 \item light_intensity_score: 1 (no filter) or binary top-N indicator (per protein)
@@ -54,10 +54,12 @@ Calculates weights based on coverage, signal intensity, monotonicity, and data v
 Designed for protein turnover data but applicable to any dose/time-response data.
 }
 \details{
-Coverage is scored via a binomial CDF: for each peptide, P(X <= k | n, p) where k is
-the number of non-zero timepoints detected, n is the total non-zero timepoints in the
-experiment, and p is the protein-level mean detection rate across all its peptides.
-This penalizes peptides with unusually low coverage relative to the protein's norm.
+Coverage is scored by relative detection count: for each peptide,
+min(1, k / (n * p)) where k is the number of non-zero timepoints detected,
+n is the total non-zero timepoints in the experiment, and p is the
+protein-level mean detection rate across all its peptides (so n * p is the
+protein's average detection count). Peptides detected at or above the
+protein average score 1; those with unusually low coverage drop toward 0.
 }
 \examples{
 \dontrun{

@@ -210,10 +210,12 @@ kendall_monotonicity <- function(time, response) {
 #' Calculates weights based on coverage, signal intensity, monotonicity, and data validity.
 #' Designed for protein turnover data but applicable to any dose/time-response data.
 #'
-#' Coverage is scored via a binomial CDF: for each peptide, P(X <= k | n, p) where k is
-#' the number of non-zero timepoints detected, n is the total non-zero timepoints in the
-#' experiment, and p is the protein-level mean detection rate across all its peptides.
-#' This penalizes peptides with unusually low coverage relative to the protein's norm.
+#' Coverage is scored by relative detection count: for each peptide,
+#' min(1, k / (n * p)) where k is the number of non-zero timepoints detected,
+#' n is the total non-zero timepoints in the experiment, and p is the
+#' protein-level mean detection rate across all its peptides (so n * p is the
+#' protein's average detection count). Peptides detected at or above the
+#' protein average score 1; those with unusually low coverage drop toward 0.
 #'
 #' @param data Data frame with peptide-level measurements (output from calculateTurnoverRatios)
 #' @param protein_col Character. Column containing protein identifiers. Default = "Protein"
@@ -229,7 +231,7 @@ kendall_monotonicity <- function(time, response) {
 #'   - coverage_per_peptide: k_obs / n (per-peptide detection proportion)
 #'   - peptide_median_light: median light-channel intensity for this peptide
 #'   - p_protein: Protein-level mean detection rate across all its peptides
-#'   - coverage_score: P(X <= k_obs | n, p_protein) — binomial CDF coverage score
+#'   - coverage_score: min(1, k_obs / (n * p_protein)) — detection count relative to the protein average, capped at 1
 #'   - peptide_rank: dense rank of the peptide within its protein by
 #'     descending peptide_median_light (rank 1 = most intense)
 #'   - light_intensity_score: 1 (no filter) or binary top-N indicator (per protein)
@@ -264,7 +266,7 @@ kendall_monotonicity <- function(time, response) {
 #'
 #' @export
 #' @importFrom dplyr group_by mutate ungroup across all_of distinct summarise left_join if_else dense_rank
-#' @importFrom stats cor pbinom median
+#' @importFrom stats cor median
 calculatePeptideWeights <- function(
     data,
     protein_col = "Protein",
@@ -300,8 +302,16 @@ calculatePeptideWeights <- function(
   data_weighted <- data_weighted %>%
     left_join(protein_p, by = protein_col) %>%
     mutate(
-      # Binomial CDF: low score = unusually low coverage relative to protein norm
-      coverage_score = pbinom(k_obs, n_coverage, p_protein)
+      # Relative coverage: this peptide's detection count (k_obs) vs the
+      # protein's average detection count (n_coverage * p_protein), capped at 1.
+      # Peptides at or above the protein average score 1; sparser ones drop
+      # toward 0. p_protein == 0 (no peptide detected) can't be below average,
+      # so it scores 1 and avoids a 0/0.
+      coverage_score = if_else(
+        p_protein > 0,
+        pmin(1, k_obs / (n_coverage * p_protein)),
+        1
+      )
     ) %>%
     group_by(across(all_of(protein_col))) %>%
     mutate(
