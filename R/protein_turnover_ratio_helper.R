@@ -96,6 +96,15 @@ calculateTurnoverRatios <- function(
     as.data.table(feature_data)
   }
 
+  # Drop rows with missing label/timepoint or non-finite intensity so callers
+  # (e.g. Shiny) need not pre-filter. is.finite() also removes Inf/-Inf, which
+  # the na.rm aggregation below would otherwise let through.
+  df <- df[
+    !is.na(df[[channel_col]]) &
+      is.finite(df[[intensity_col]]) &
+      !is.na(df[[time_col]])
+  ]
+
   df[, c("Protein", "BaseSequence", "Label",
          "TimeVal", "Intensity", "Run") := list(
     df[[protein_col]],
@@ -389,6 +398,16 @@ calculateQCScore <- function(feature_data,
                              intensity_col = "INTENSITY",
                              time_col      = "GROUP",
                              light_label   = "L") {
+  # Drop rows with missing label/timepoint or non-finite intensity before any
+  # counting, so n_tp is not inflated by NA timepoints. Done here so callers
+  # (e.g. Shiny) need not pre-filter to get correct QC scores.
+  feature_data <- feature_data %>%
+    filter(
+      !is.na(.data[[label_col]]),
+      is.finite(.data[[intensity_col]]),
+      !is.na(.data[[time_col]])
+    )
+
   n_tp <- n_distinct(feature_data[[time_col]])
 
   feature_data %>%
