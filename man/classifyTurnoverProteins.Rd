@@ -63,8 +63,9 @@ different channels and should not be compared. This is the column the
 \code{category} cutoffs are applied to, so a large gap between the two means
 the category reflects the pooled fit rather than one peptide's best
 observation.
-\item category: one of \code{long_lived}, \code{medium_lived}, \code{fast}, \code{no_heavy}
-\item tier: one of \code{HIGH}, \code{MEDIUM}, \code{LOW}
+\item category: one of \code{long_lived}, \code{medium_lived}, \code{fast},
+\code{insufficient_data}, \code{no_heavy}
+\item tier: one of \code{HIGH}, \code{MEDIUM}, \code{LOW}, or \code{NA} for \code{insufficient_data}
 \item confidence, qc_score: the scores the tier was derived from
 }
 
@@ -95,7 +96,9 @@ reaches at any timepoint. The three fitted bands are exhaustive:
 \item \code{medium_lived}: \code{max_fitted_ratio} in [\code{long_lived_cutoff},
 \code{fast_cutoff}] (default 0.30 to 0.90, both inclusive)
 \item \code{fast}: \code{max_fitted_ratio} > \code{fast_cutoff} (default 0.90)
-\item \code{no_heavy}: no fit was available, so there is no curve to read
+\item \code{insufficient_data}: heavy ratios were measured, but fewer than 2
+timepoints have an observation with weight > 0, so no curve was fit
+\item \code{no_heavy}: no heavy ratios were measured at all
 }
 
 The cutoffs are applied to the fitted curve, not to the raw
@@ -105,16 +108,8 @@ raw maximum ignores, so a protein can sit in a lower band than its raw
 values alone would suggest. That is deliberate: it is the pooled fit, not
 one peptide's best observation, that the category describes.
 
-What \code{no_heavy} actually tests is \code{is.na(confidence)}, which means the
-protein has no row in \code{fit_df}. That is usually because it had no detectable
-heavy peptides, but it also catches proteins whose heavy data existed and
-was too sparse or degenerate to fit (for example heavy detected at a single
-timepoint, which \code{doseResponseFit()} drops with a warning). The two are
-distinguishable in the output: \code{max_observed_heavy_ratio} is \code{NA} for a
-protein that never reached the ratio table at all, and a real number for one
-whose heavy data was measured but unusable. Note that \code{n_heavy_peptides} is
-\code{NA} for both, since it arrives via \code{conf_df}, so it cannot be used to tell
-them apart.
+Both \code{insufficient_data} and \code{no_heavy} proteins have no row in \code{fit_df}.
+They are told apart by whether the protein appears in \code{weights_df}.
 
 \code{half_life} is the time to reach \code{target_long} (default 0.50) and is
 independent of the category bands. A \code{medium_lived} protein whose
@@ -123,8 +118,9 @@ never reaches that target, so it carries \code{half_life = NA}; test
 \code{is.na(half_life)} when you need proteins with an actual IC50 estimate.
 
 Tiers use percentile cutoffs computed from the input data. Proteins with a
-fit are tiered on \code{confidence}; \code{no_heavy} proteins are tiered on \code{qc_score}.
-HIGH tier additionally requires a minimum number of observations.
+fit are tiered on \code{confidence}; \code{no_heavy} proteins are tiered on \code{qc_score};
+\code{insufficient_data} proteins get \code{tier = NA}. HIGH tier additionally
+requires a minimum number of observations.
 }
 \examples{
 \dontrun{

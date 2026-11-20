@@ -541,7 +541,9 @@ calculateConfidence <- function(weights_df,
 #'   - `medium_lived`: `max_fitted_ratio` in \[`long_lived_cutoff`,
 #'     `fast_cutoff`\] (default 0.30 to 0.90, both inclusive)
 #'   - `fast`: `max_fitted_ratio` > `fast_cutoff` (default 0.90)
-#'   - `no_heavy`: no fit was available, so there is no curve to read
+#'   - `insufficient_data`: heavy ratios were measured, but fewer than 2
+#'     timepoints have an observation with weight > 0, so no curve was fit
+#'   - `no_heavy`: no heavy ratios were measured at all
 #'
 #' The cutoffs are applied to the fitted curve, not to the raw
 #' `max_observed_heavy_ratio`. The fitted maximum is always the lower of the
@@ -550,16 +552,8 @@ calculateConfidence <- function(weights_df,
 #' values alone would suggest. That is deliberate: it is the pooled fit, not
 #' one peptide's best observation, that the category describes.
 #'
-#' What `no_heavy` actually tests is `is.na(confidence)`, which means the
-#' protein has no row in `fit_df`. That is usually because it had no detectable
-#' heavy peptides, but it also catches proteins whose heavy data existed and
-#' was too sparse or degenerate to fit (for example heavy detected at a single
-#' timepoint, which `doseResponseFit()` drops with a warning). The two are
-#' distinguishable in the output: `max_observed_heavy_ratio` is `NA` for a
-#' protein that never reached the ratio table at all, and a real number for one
-#' whose heavy data was measured but unusable. Note that `n_heavy_peptides` is
-#' `NA` for both, since it arrives via `conf_df`, so it cannot be used to tell
-#' them apart.
+#' Both `insufficient_data` and `no_heavy` proteins have no row in `fit_df`.
+#' They are told apart by whether the protein appears in `weights_df`.
 #'
 #' `half_life` is the time to reach `target_long` (default 0.50) and is
 #' independent of the category bands. A `medium_lived` protein whose
@@ -568,8 +562,9 @@ calculateConfidence <- function(weights_df,
 #' `is.na(half_life)` when you need proteins with an actual IC50 estimate.
 #'
 #' Tiers use percentile cutoffs computed from the input data. Proteins with a
-#' fit are tiered on `confidence`; `no_heavy` proteins are tiered on `qc_score`.
-#' HIGH tier additionally requires a minimum number of observations.
+#' fit are tiered on `confidence`; `no_heavy` proteins are tiered on `qc_score`;
+#' `insufficient_data` proteins get `tier = NA`. HIGH tier additionally
+#' requires a minimum number of observations.
 #'
 #' @param weights_df Output of `calculatePeptideWeights()`.
 #' @param fit_df Output of `doseResponseFit()`.
@@ -605,8 +600,9 @@ calculateConfidence <- function(weights_df,
 #'     `category` cutoffs are applied to, so a large gap between the two means
 #'     the category reflects the pooled fit rather than one peptide's best
 #'     observation.
-#'   - category: one of `long_lived`, `medium_lived`, `fast`, `no_heavy`
-#'   - tier: one of `HIGH`, `MEDIUM`, `LOW`
+#'   - category: one of `long_lived`, `medium_lived`, `fast`,
+#'     `insufficient_data`, `no_heavy`
+#'   - tier: one of `HIGH`, `MEDIUM`, `LOW`, or `NA` for `insufficient_data`
 #'   - confidence, qc_score: the scores the tier was derived from
 #'
 #'   The remaining columns are the fit diagnostics from `doseResponseFit()`
@@ -684,6 +680,7 @@ classifyTurnoverProteins <- function(weights_df,
               by = hl_keys) %>%
     mutate(
       category = case_when(
+        is.na(confidence) & Protein %in% weights_df$Protein ~ "insufficient_data",
         is.na(confidence)                    ~ "no_heavy",
         max_fitted_ratio > fast_cutoff       ~ "fast",
         max_fitted_ratio < long_lived_cutoff ~ "long_lived",
@@ -703,6 +700,7 @@ classifyTurnoverProteins <- function(weights_df,
   out <- out %>%
     mutate(
       tier = case_when(
+        category == "insufficient_data"                                           ~ NA_character_,
         category == "no_heavy" & qc_score >= qc_high & observed_cells >= min_obs ~ "HIGH",
         category == "no_heavy" & qc_score >= qc_low                              ~ "MEDIUM",
         category == "no_heavy"                                                    ~ "LOW",
