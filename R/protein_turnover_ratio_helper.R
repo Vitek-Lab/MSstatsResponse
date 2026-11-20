@@ -650,7 +650,8 @@ classifyTurnoverProteins <- function(weights_df,
   long_pred <- predictIC50(weights_df,
                            increasing = TRUE, transform_dose = FALSE,
                            precalculated_ratios = TRUE, bootstrap = FALSE,
-                           target_response = target_long)
+                           target_response = target_long,
+                           weights = weights_df$weight)
 
   # half_life: dose (time) at which the heavy fraction reaches target_long
   half_life_df <- long_pred %>%
