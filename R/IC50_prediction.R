@@ -216,6 +216,8 @@
 #' @param target_response The target response value for prediction (default = 0.5).
 #'
 #' @return Estimated dose value corresponding to target response (IC50)
+#' @keywords internal
+#' @noRd
 #' @importFrom stats approx
 PredictIC50 = function(fit, target_response = 0.5) {
   dose = fit$x
@@ -254,6 +256,8 @@ PredictIC50 = function(fit, target_response = 0.5) {
 #' @param increasing Logical. Fit non-decreasing if TRUE.
 #' @param target_response Numeric value for response level (default = 0.5).
 #' @param transform_x Logical. If TRUE, applies log10(x + 1) transformation. Default = TRUE.
+#' @param weights Optional numeric vector of observation weights, resampled
+#'   together with each observation. Default = NULL (equal weights).
 #'
 #' @return List with mean IC50, CI bounds, and transformed estimates.
 #' @importFrom stats quantile
@@ -324,6 +328,8 @@ bootstrapIC50 = function(dose, response, n_samples = 1000, alpha = 0.10,
 #' @param increasing Logical. Fit non-decreasing if TRUE.
 #' @param target_response Numeric value for response level (default = 0.5).
 #' @param transform_x Logical. If TRUE, applies log10(x + 1) transformation. Default = TRUE.
+#' @param weights Optional numeric vector of observation weights, resampled
+#'   together with each observation. Default = NULL (equal weights).
 #' @return List with mean IC50, CI bounds, and transformed estimates.
 #' @importFrom stats quantile
 #' @importFrom dplyr filter select mutate group_by summarise arrange distinct
@@ -401,6 +407,8 @@ bootstrapIC50LogScale = function(x, y, n_samples = 1000, alpha = 0.05,
 #' @param increasing Logical. Fit non-decreasing if TRUE.
 #' @param target_response Numeric value for response level.
 #' @param transform_x Logical. If TRUE, applies log10(x + 1) transformation. Default = TRUE.
+#' @param weights Optional numeric vector of observation weights, resampled
+#'   together with each observation. Default = NULL (equal weights).
 #'
 #' @return List with mean IC50, CI bounds, and transformed estimates.
 #' @importFrom stats quantile

@@ -29,6 +29,9 @@ bootstrapIC50LogScale(
 \item{target_response}{Numeric value for response level (default = 0.5).}
 
 \item{transform_x}{Logical. If TRUE, applies log10(x + 1) transformation. Default = TRUE.}
+
+\item{weights}{Optional numeric vector of observation weights, resampled
+together with each observation. Default = NULL (equal weights).}
 }
 \value{
 List with mean IC50, CI bounds, and transformed estimates.

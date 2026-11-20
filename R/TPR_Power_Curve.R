@@ -270,6 +270,7 @@ run_tpr_simulation <- function(rep_range, concentrations, dose_range,
 #' the strong interaction category) are displayed. Line color shading goes
 #' from light (fewest replicates) to dark (most replicates).
 #'
+#' @param simulation_results Data frame returned by [run_tpr_simulation()].
 #' @param static Logical. If \code{TRUE}, returns a static \code{ggplot}
 #'   object suitable for PDF export. Default: \code{FALSE}.
 #'

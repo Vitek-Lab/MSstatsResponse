@@ -15,6 +15,9 @@
 #'   For decreasing curves: use values < 1 (e.g., 0.5 for IC50).
 #'   For increasing curves: use values > 1 (e.g., 1.5 for 50% increase).
 #'   Default = 0.5 (auto-adjusts to 1.5 for increasing curves).
+#' @param weights Optional numeric vector of weights, one per row of `data`.
+#'   Observations with weight 0 do not affect the fit. Default = NULL (equal
+#'   weights).
 #'
 #' @return A data frame with columns: protein, drug, IC50, IC50_lower_bound, IC50_upper_bound, direction.
 #'

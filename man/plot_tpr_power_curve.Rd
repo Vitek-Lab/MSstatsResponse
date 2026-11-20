@@ -7,6 +7,8 @@
 plot_tpr_power_curve(simulation_results, static = FALSE)
 }
 \arguments{
+\item{simulation_results}{Data frame returned by \code{\link[=run_tpr_simulation]{run_tpr_simulation()}}.}
+
 \item{static}{Logical. If \code{TRUE}, returns a static \code{ggplot}
 object suitable for PDF export. Default: \code{FALSE}.}
 }
