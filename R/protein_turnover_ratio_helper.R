@@ -441,7 +441,9 @@ calculateQCScore <- function(feature_data,
 #' @param weights_df Output of `calculatePeptideWeights()`.
 #' @param fit_df Output of `doseResponseFit()` (must contain an SSE column).
 #' @param qc_df Output of `calculateQCScore()`.
-#' @param feature_data Raw feature-level data (used to count heavy peptides per protein).
+#' @param feature_data Raw feature-level data (used to count heavy peptides per
+#'   protein). Rows with a non-finite intensity are ignored, so the output of
+#'   `MSstats::dataProcess()` can be passed without pre-filtering.
 #' @param protein_col Character. Column in weights_df / fit_df identifying proteins. Default = "Protein"
 #' @param weight_col Character. Column in weights_df containing per-observation weight. Default = "weight"
 #' @param sse_col Character. Column in fit_df containing SSE. Default = "SSE_Full"
@@ -453,6 +455,8 @@ calculateQCScore <- function(feature_data,
 #' @param heavy_label Character. Value indicating heavy channel. Default = "H"
 #' @param k_shrinkage Numeric. Bayesian shrinkage constant for the peptide-count factor.
 #'   Larger values penalize low-peptide proteins more strongly. Default = 2
+#' @param feature_intensity_col Character. Intensity column in feature_data.
+#'   Default = "INTENSITY"
 #'
 #' @return The input fit_df with additional columns:
 #'   - mean_weight: average per-observation weight
@@ -487,10 +491,14 @@ calculateConfidence <- function(weights_df,
                                 feature_peptide_col   = "PEPTIDE",
                                 feature_label_col     = "LABEL",
                                 heavy_label           = "H",
-                                k_shrinkage           = 2) {
+                                k_shrinkage           = 2,
+                                feature_intensity_col = "INTENSITY") {
 
+  # dataProcess() keeps rows for unmeasured features (INTENSITY = NA); only
+  # peptides with a measured heavy intensity count as heavy peptides.
   pep_counts <- feature_data %>%
-    filter(.data[[feature_label_col]] == heavy_label) %>%
+    filter(.data[[feature_label_col]] == heavy_label,
+           is.finite(.data[[feature_intensity_col]])) %>%
     group_by(.data[[feature_protein_col]]) %>%
     summarise(n_heavy_peptides = n_distinct(.data[[feature_peptide_col]]),
               .groups = "drop") %>%

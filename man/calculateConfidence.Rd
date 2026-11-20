@@ -18,7 +18,8 @@ calculateConfidence(
   feature_peptide_col = "PEPTIDE",
   feature_label_col = "LABEL",
   heavy_label = "H",
-  k_shrinkage = 2
+  k_shrinkage = 2,
+  feature_intensity_col = "INTENSITY"
 )
 }
 \arguments{
@@ -28,7 +29,9 @@ calculateConfidence(
 
 \item{qc_df}{Output of \code{calculateQCScore()}.}
 
-\item{feature_data}{Raw feature-level data (used to count heavy peptides per protein).}
+\item{feature_data}{Raw feature-level data (used to count heavy peptides per
+protein). Rows with a non-finite intensity are ignored, so the output of
+\code{MSstats::dataProcess()} can be passed without pre-filtering.}
 
 \item{protein_col}{Character. Column in weights_df / fit_df identifying proteins. Default = "Protein"}
 
@@ -50,6 +53,9 @@ calculateConfidence(
 
 \item{k_shrinkage}{Numeric. Bayesian shrinkage constant for the peptide-count factor.
 Larger values penalize low-peptide proteins more strongly. Default = 2}
+
+\item{feature_intensity_col}{Character. Intensity column in feature_data.
+Default = "INTENSITY"}
 }
 \value{
 The input fit_df with additional columns:
