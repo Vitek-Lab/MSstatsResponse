@@ -236,7 +236,7 @@ run_tpr_simulation <- function(rep_range, concentrations, dose_range,
     "#525252",  # cool dark gray
     "#08306b"   # deep navy
   )
-  color_palette <- setNames(all_colors[seq_len(n_levels)], as.character(rep_levels))
+  color_palette <- stats::setNames(all_colors[seq_len(n_levels)], as.character(rep_levels))
 
   p <- ggplot2::ggplot(data,
     ggplot2::aes(x = NumConcs, y = TPR,

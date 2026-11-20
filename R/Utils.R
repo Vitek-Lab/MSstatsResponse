@@ -18,6 +18,16 @@ utils::globalVariables(c(
   ".SD", "Protein", "BaseSequence", "Label", "TimeVal", "Run",
   "Heavy", "Light", "Total", "H_frac", "L_frac", "tracer_factor",
 
+  # Variables from the other protein turnover helpers (dplyr NSE)
+  "PROTEIN", "IC50", "k_obs", "coverage_per_peptide", "p_protein",
+  "peptide_median_light", "peptide_rank", "coverage_score",
+  "light_intensity_score", "monotonicity_score", "validity_flag",
+  "n_light_peptides", "observed_cells", "n_max_possible",
+  "n_heavy_peptides", "mean_weight", "pep_factor", "confidence",
+
+  # Variables from plotIsotonic and .getMeanProfile
+  "weight", "dose_str",
+
   # Add any other NSE variables used in your package
   "drug", "protein", "dose", "x", "y", "y_pred"
 ))
