@@ -307,3 +307,41 @@ test_that(".calcSingleIC50 handles failed fits", {
 
   expect_true(is.na(result$IC50))
 })
+
+create_turnover_ratios <- function() {
+  dose <- rep(c(1, 2, 6, 12, 24, 48), each = 3)
+  set.seed(42)
+  response <- rep(c(0.05, 0.15, 0.35, 0.55, 0.75, 0.9), each = 3) +
+    rnorm(length(dose), 0, 0.03)
+  list(dose = dose, response = response)
+}
+
+test_that("bootstrapIC50Precalculated returns an interval around the estimate", {
+  ratios <- create_turnover_ratios()
+  set.seed(1)
+  result <- bootstrapIC50Precalculated(ratios$dose, ratios$response,
+                                       n_samples = 50, increasing = TRUE,
+                                       target_response = 0.5,
+                                       transform_x = FALSE)
+  expect_named(result, c("ic50_values", "mean_ic50", "ci_lower", "ci_upper",
+                         "mean_ic50_transform", "ci_lower_transform",
+                         "ci_upper_transform"))
+  expect_length(result$ic50_values, 50)
+  expect_true(result$ci_lower <= result$mean_ic50)
+  expect_true(result$mean_ic50 <= result$ci_upper)
+  expect_true(result$mean_ic50 > 6 && result$mean_ic50 < 24)
+  expect_equal(result$mean_ic50_transform, result$mean_ic50)
+})
+
+test_that("bootstrapIC50Precalculated tolerates zero weights", {
+  ratios <- create_turnover_ratios()
+  weights <- rep(1, length(ratios$dose))
+  weights[c(1, 2, 3, 10)] <- 0
+  set.seed(1)
+  result <- bootstrapIC50Precalculated(ratios$dose, ratios$response,
+                                       n_samples = 30, increasing = TRUE,
+                                       target_response = 0.5,
+                                       transform_x = FALSE, weights = weights)
+  expect_true(is.finite(result$mean_ic50))
+  expect_true(result$ci_lower <= result$ci_upper)
+})
