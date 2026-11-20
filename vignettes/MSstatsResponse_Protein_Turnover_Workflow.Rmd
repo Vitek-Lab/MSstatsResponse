@@ -327,8 +327,9 @@ fit %>%
   head(10)
 ```
 
-Proteins that don't show up in `fit` simply didn't have enough usable heavy
-signal to fit a curve at all. They're not dropped; they get labeled
+Measurements with a weight of 0 don't affect the curve. A protein needs at
+least 2 timepoints with a weight above 0 to be fit. Proteins that don't show
+up in `fit` aren't dropped; they get labeled `insufficient_data` or
 `no_heavy` in Step 6.
 
 ### Step 5: Scoring confidence
@@ -374,9 +375,11 @@ Each protein gets a **category** describing how it behaves, and a **tier**
 - `long_lived`: the curve never climbs above 30% heavy
 - `medium_lived`: the curve climbs to somewhere between 30% and 90% heavy
 - `fast`: the curve climbs above 90% heavy
-- `no_heavy`: no curve could be fit at all, either because no heavy signal
-  was ever detected, or because what little was detected was too sparse to
-  fit (these are good long-lived-protein candidates too)
+- `insufficient_data`: heavy signal was measured, but fewer than 2
+  timepoints had a measurement with a weight above 0, so no curve could be
+  fit
+- `no_heavy`: no heavy signal was ever detected (these are good
+  long-lived-protein candidates too)
 
 **Half-life** is the time it took the fitted curve to reach 50% heavy. If the
 curve never gets there, `half_life` is `NA`. This includes every
@@ -398,6 +401,7 @@ between 30% and 50%.
 - proteins with a fitted curve are ranked by `confidence`
 - `no_heavy` proteins are ranked by `qc_score` instead, since there's no
   curve to score
+- `insufficient_data` proteins get no tier (`NA`)
 - HIGH also requires at least 3 data points, so a great score built on very
   little data doesn't count as HIGH
 
