@@ -216,3 +216,65 @@ test_that("calculatePeptideWeights consumes calculateTurnoverRatios output", {
   expect_equal(nrow(weighted), nrow(res))
   expect_true(all(weighted$weight >= 0 & weighted$weight <= 1))
 })
+
+make_classify_inputs <- function() {
+  weights_df <- data.frame(
+    Protein = rep(c("P_fit", "P_zero"), c(5, 4)),
+    BaseSequence = "PEPTIDE",
+    TimeVal = c(1, 2, 2, 3, 4, 1, 2, 3, 4),
+    H_frac = c(0.1, 0.2, 0.9, 0.3, 0.8, 0.1, 0.2, 0.3, 0.4),
+    weight = c(1, 1, 0, 1, 1, 0, 0, 0, 0)
+  )
+  weights_df$protein <- weights_df$Protein
+  weights_df$drug <- "Synthesis"
+  weights_df$dose <- weights_df$TimeVal
+  weights_df$response <- weights_df$H_frac
+
+  feature_data <- data.frame(
+    PROTEIN = rep(c("P_fit", "P_zero", "P_light"), each = 2),
+    PEPTIDE = "PEPTIDE",
+    LABEL = rep(c("H", "L"), 3),
+    INTENSITY = c(100, 100, 100, 100, NA, 100)
+  )
+  qc_df <- data.frame(PROTEIN = c("P_fit", "P_zero", "P_light"),
+                      n_light_peptides = 1L, observed_cells = 4L,
+                      n_max_possible = 4L, qc_score = 1)
+  fit_df <- suppressMessages(doseResponseFit(
+    weights_df, weights = weights_df$weight, increasing = TRUE,
+    transform_dose = FALSE, precalculated_ratios = TRUE
+  ))
+  conf_df <- calculateConfidence(weights_df, fit_df, qc_df, feature_data)
+  list(weights_df = weights_df, fit_df = fit_df, qc_df = qc_df,
+       conf_df = conf_df)
+}
+
+test_that("classifyTurnoverProteins separates insufficient_data from no_heavy", {
+  inputs <- make_classify_inputs()
+  final <- classifyTurnoverProteins(inputs$weights_df, inputs$fit_df,
+                                    inputs$qc_df, inputs$conf_df)
+  category <- setNames(final$category, final$Protein)
+  tier <- setNames(final$tier, final$Protein)
+
+  expect_equal(category[["P_fit"]], "medium_lived")
+  expect_equal(category[["P_zero"]], "insufficient_data")
+  expect_equal(category[["P_light"]], "no_heavy")
+  expect_true(is.na(tier[["P_zero"]]))
+  expect_false(is.na(tier[["P_light"]]))
+})
+
+test_that("classifyTurnoverProteins half_life uses the peptide weights", {
+  inputs <- make_classify_inputs()
+  final <- classifyTurnoverProteins(inputs$weights_df, inputs$fit_df,
+                                    inputs$qc_df, inputs$conf_df)
+  fit_rows <- inputs$weights_df[inputs$weights_df$Protein == "P_fit", ]
+  weighted <- predictIC50(fit_rows, increasing = TRUE, transform_dose = FALSE,
+                          precalculated_ratios = TRUE, bootstrap = FALSE,
+                          target_response = 0.5, weights = fit_rows$weight)
+  unweighted <- predictIC50(fit_rows, increasing = TRUE, transform_dose = FALSE,
+                            precalculated_ratios = TRUE, bootstrap = FALSE,
+                            target_response = 0.5)
+
+  half_life <- final$half_life[final$Protein == "P_fit"]
+  expect_equal(half_life, weighted$IC50, tolerance = 1e-12)
+  expect_false(isTRUE(all.equal(half_life, unweighted$IC50)))
+})
