@@ -2,7 +2,7 @@
 \title{MSstatsResponse News}
 \encoding{UTF-8}
 
-\section{Version 1.3.7 (2026-11-20)}{
+\section{Version 1.4.0 (2026-11-25)}{
     \itemize{
         \item Added a protein turnover workflow: calculateQCScore, calculateConfidence and classifyTurnoverProteins.
         \item Added the simulated_turnover_data example dataset and a protein turnover vignette.
