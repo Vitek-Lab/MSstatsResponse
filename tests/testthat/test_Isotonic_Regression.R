@@ -338,3 +338,61 @@ test_that("doseResponseFit empty results carry the same columns as populated one
   expect_false("protein" %in% names(no_fits))
   expect_true("log2FC" %in% names(no_fits))
 })
+
+test_that("fitIsotonicRegression pools across a block of zero-weight points", {
+  x <- c(1, 2, 3, 4, 5, 6)
+  y <- c(0.1, 0.9, 0.5, 0.6, 0.7, 0.8)
+  w <- c(1, 0, 0, 1, 1, 1)
+  fit <- fitIsotonicRegression(x, y, w = w, increasing = TRUE,
+                               transform_x = FALSE, test_significance = TRUE)
+  expect_true(all(is.finite(fit$y_pred)))
+
+  # Same curve as fitting the weighted points alone, interpolated in between
+  keep <- w > 0
+  fit_kept <- fitIsotonicRegression(x[keep], y[keep], w = w[keep],
+                                    increasing = TRUE, transform_x = FALSE)
+  expect_equal(fit$y_pred[keep], fit_kept$y_pred, tolerance = 1e-12)
+  expect_equal(fit$y_pred[2:3], approx(x[keep], fit_kept$y_pred, xout = 2:3)$y,
+               tolerance = 1e-12)
+})
+
+test_that("a zero-weight point does not set the fitted maximum", {
+  fit <- fitIsotonicRegression(x = c(1, 2, 3, 4), y = c(0.2, 0.4, 0.6, 1.5),
+                               w = c(1, 1, 1, 0), increasing = TRUE,
+                               transform_x = FALSE)
+  expect_equal(max(fit$y_pred), 0.6, tolerance = 1e-12)
+})
+
+test_that("fitIsotonicRegression needs 2 doses with weight > 0", {
+  expect_error(
+    fitIsotonicRegression(x = c(1, 1, 2, 3), y = c(0.1, 0.2, 0.3, 0.4),
+                          w = c(1, 1, 0, 0), increasing = TRUE,
+                          transform_x = FALSE),
+    class = "insufficient_data_error"
+  )
+  expect_error(
+    fitIsotonicRegression(x = c(1, 2, 3), y = c(0.1, 0.2, 0.3),
+                          w = c(0, 0, 0), increasing = TRUE,
+                          transform_x = FALSE),
+    class = "insufficient_data_error"
+  )
+})
+
+test_that("doseResponseFit skips proteins without enough weighted doses", {
+  data <- data.frame(
+    protein = rep(c("P_ok", "P_zero"), each = 4),
+    drug = "Synthesis",
+    dose = rep(c(1, 2, 3, 4), 2),
+    response = c(0.1, 0.3, 0.5, 0.7, 0.1, 0.3, 0.5, 0.7)
+  )
+  weights <- c(1, 1, 1, 1, 0, 0, 0, 0)
+  expect_no_warning(
+    expect_message(
+      results <- doseResponseFit(data, weights = weights, increasing = TRUE,
+                                 transform_dose = FALSE,
+                                 precalculated_ratios = TRUE),
+      "1 protein\\(s\\) not fit"
+    )
+  )
+  expect_equal(results$Protein, "P_ok")
+})
