@@ -141,3 +141,48 @@ test_that("plotIsotonic creates valid plot from fit object", {
 
   expect_s3_class(plot, "ggplot")
 })
+
+create_turnover_plot_data <- function() {
+  dose <- rep(c(1, 2, 6, 12, 24, 48), times = 2)
+  data.frame(
+    protein = "P1",
+    drug = "Synthesis",
+    dose = dose,
+    response = c(0.05, 0.15, 0.35, 0.55, 0.75, 0.9,
+                 0.08, 0.2, 0.3, 0.6, 0.7, 1.6),
+    BaseSequence = rep(c("PEPA", "PEPB"), each = 6),
+    weight = c(rep(1, 6), rep(0.5, 5), 0)
+  )
+}
+
+test_that("visualizeResponseProtein supports the turnover plotting options", {
+  data <- create_turnover_plot_data()
+  plot <- visualizeResponseProtein(
+    data = data, protein_name = "P1", drug_name = "Synthesis",
+    precalculated_ratios = TRUE, ratio_response = FALSE,
+    transform_dose = FALSE, weights = data$weight, increasing = TRUE,
+    show_ic50 = TRUE, ic50_label = "t50", add_ci = FALSE,
+    target_response = 0.5, show_weights = TRUE, color_by = "BaseSequence"
+  )
+  expect_s3_class(plot, "ggplot")
+
+  built <- ggplot2::ggplot_build(plot)
+  labels <- unlist(lapply(built$data, function(layer) layer$label))
+  expect_true(any(grepl("t50", labels)))
+  point_layer <- built$data[[which(vapply(built$plot$layers, function(l)
+    inherits(l$geom, "GeomPoint"), logical(1)))[1]]]
+  expect_equal(length(unique(point_layer$colour)), 2)
+})
+
+test_that("visualizeResponseProtein errors on an unknown color_by column", {
+  data <- create_turnover_plot_data()
+  expect_error(
+    visualizeResponseProtein(
+      data = data, protein_name = "P1", drug_name = "Synthesis",
+      precalculated_ratios = TRUE, ratio_response = FALSE,
+      transform_dose = FALSE, increasing = TRUE, show_ic50 = FALSE,
+      add_ci = FALSE, color_by = "NotAColumn"
+    ),
+    "NotAColumn"
+  )
+})
