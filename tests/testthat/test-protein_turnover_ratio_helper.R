@@ -278,3 +278,37 @@ test_that("classifyTurnoverProteins half_life uses the peptide weights", {
   expect_equal(half_life, weighted$IC50, tolerance = 1e-12)
   expect_false(isTRUE(all.equal(half_life, unweighted$IC50)))
 })
+
+test_that("calculateQCScore is the share of light peptide-timepoints observed", {
+  feature_data <- data.frame(
+    PROTEIN = c(rep("P1", 6), "P1", "P1", "P1", rep("P2", 2), "P3"),
+    PEPTIDE = c("A", "A", "A", "A", "B", "B", "B", "A", "C", "D", "D", "E"),
+    LABEL = c(rep("L", 6), "L", "H", NA, "L", "L", "H"),
+    GROUP = c("1hr", "2hrs", "6hrs", "12hrs", "1hr", "2hrs", "6hrs", "12hrs",
+              "1hr", "1hr", "2hrs", "12hrs"),
+    INTENSITY = c(rep(100, 6), NA, 100, 100, 100, 100, 100),
+    stringsAsFactors = FALSE
+  )
+  qc <- calculateQCScore(feature_data)
+  qc <- qc[order(qc$PROTEIN), ]
+
+  # P1: A at 4 timepoints, B at 2 (its NA-intensity row is ignored) -> 6 / 8
+  # P2: D at 2 of 4 timepoints -> 2 / 4; P3 has no light rows
+  expect_equal(qc$PROTEIN, c("P1", "P2"))
+  expect_equal(qc$n_light_peptides, c(2L, 1L))
+  expect_equal(qc$observed_cells, c(6L, 2L))
+  expect_equal(qc$n_max_possible, c(8L, 4L))
+  expect_equal(qc$qc_score, c(0.75, 0.5), tolerance = 1e-12)
+})
+
+test_that("calculateQCScore honors custom column names", {
+  feature_data <- data.frame(
+    Prot = "P1", Pep = c("A", "A"), Channel = c("light", "light"),
+    Time = c("1hr", "2hrs"), Abundance = c(100, 100)
+  )
+  qc <- calculateQCScore(feature_data, protein_col = "Prot",
+                         peptide_col = "Pep", label_col = "Channel",
+                         intensity_col = "Abundance", time_col = "Time",
+                         light_label = "light")
+  expect_equal(qc$qc_score, 1)
+})
