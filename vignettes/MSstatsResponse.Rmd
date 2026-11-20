@@ -376,6 +376,8 @@ print(custom_simulation$Template_Used)
 Control (0) and the highest dose are always included; intermediate doses are selected by greedily choosing the concentration farthest from the log-median of the already-selected set.
 
 Use `plot_tpr_power_curve()` to visualize the resulting power curves.
+It returns an interactive plot by default; `static = TRUE` is used here to
+keep the vignette small.
 
 ```{r tpr_power_curve, eval=TRUE, message=FALSE, warning=FALSE}
 power_results <- run_tpr_simulation(
@@ -387,7 +389,7 @@ power_results <- run_tpr_simulation(
   n_proteins = 300
 )
 
-plot_tpr_power_curve(power_results)
+plot_tpr_power_curve(power_results, static = TRUE)
 
 ```
 
