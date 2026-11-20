@@ -84,13 +84,25 @@ factor that penalizes thin peptide support: with \code{k_shrinkage = 2}, a
 1-peptide protein is capped at 1/3 of its otherwise-achievable score.
 }
 \examples{
-\dontrun{
-qc      <- calculateQCScore(df_feat)
-weights <- calculatePeptideWeights(ratios)
-fit     <- doseResponseFit(ratios, increasing = TRUE, precalculated_ratios = TRUE)
-conf    <- calculateConfidence(weights, fit, qc, df_feat)
+data("simulated_turnover_data", package = "MSstatsResponse")
+feature_data <- subset(simulated_turnover_data,
+                       PROTEIN \%in\% sprintf("Protein_\%03d", 1:12))
+tracer_constants <- c(`1` = 0.11, `2` = 0.10, `6` = 0.11, `12` = 0.12,
+                      `24` = 0.12, `48` = 0.13, `100` = 0.15, `170` = 0.17)
 
-conf \%>\% arrange(desc(confidence)) \%>\% head()
-}
+qc <- calculateQCScore(feature_data)
+ratios <- calculateTurnoverRatios(feature_data, normalize_tracer = TRUE,
+                                  tracer_constants = tracer_constants)
+ratios$protein <- ratios$Protein
+ratios$drug <- "Synthesis"
+ratios$dose <- ratios$TimeVal
+ratios$response <- ratios$H_frac
+weights <- calculatePeptideWeights(ratios)
+fit <- doseResponseFit(weights, weights = weights$weight, increasing = TRUE,
+                       transform_dose = FALSE, precalculated_ratios = TRUE)
+
+conf <- calculateConfidence(weights, fit, qc, feature_data)
+conf[order(conf$confidence, decreasing = TRUE),
+     c("Protein", "mean_weight", "qc_score", "n_heavy_peptides", "confidence")]
 
 }

@@ -62,28 +62,27 @@ protein's average detection count). Peptides detected at or above the
 protein average score 1; those with unusually low coverage drop toward 0.
 }
 \examples{
-\dontrun{
+data("simulated_turnover_data", package = "MSstatsResponse")
+feature_data <- subset(simulated_turnover_data,
+                       PROTEIN \%in\% sprintf("Protein_\%03d", 1:12))
+tracer_constants <- c(`1` = 0.11, `2` = 0.10, `6` = 0.11, `12` = 0.12,
+                      `24` = 0.12, `48` = 0.13, `100` = 0.15, `170` = 0.17)
+
 # Calculate ratios first
-ratios <- calculateTurnoverRatios(feature_data)
+ratios <- calculateTurnoverRatios(feature_data, normalize_tracer = TRUE,
+                                  tracer_constants = tracer_constants)
 
 # Add quality weights
 ratios_weighted <- calculatePeptideWeights(ratios)
 
-# Inspect coverage diagnostics
-ratios_weighted \%>\%
-  group_by(Protein, BaseSequence) \%>\%
-  slice(1) \%>\%
-  select(Protein, BaseSequence, k_obs, p_protein, coverage_score, monotonicity_score, weight)
+# Inspect coverage diagnostics, one row per peptide
+peptide_summary <- unique(ratios_weighted[, c("Protein", "BaseSequence",
+                                              "k_obs", "coverage_score",
+                                              "monotonicity_score")])
+head(peptide_summary)
 
-# Use with doseResponseFit
-result <- doseResponseFit(
-  data = ratios_weighted,
-  weights = ratios_weighted$weight,
-  increasing = TRUE
-)
-
-# Use stricter validity threshold
-ratios_weighted_strict <- calculatePeptideWeights(ratios, validity_threshold = 1.0)
-}
+# Use a stricter validity threshold
+ratios_weighted_strict <- calculatePeptideWeights(ratios,
+                                                  validity_threshold = 1.0)
 
 }

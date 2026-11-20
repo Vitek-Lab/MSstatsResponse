@@ -53,9 +53,11 @@ light measurements is n * T. The qc_score is the fraction of those that
 were actually observed, capped at 1.
 }
 \examples{
-\dontrun{
-qc <- calculateQCScore(quant_data$FeatureLevelData)
-qc \%>\% arrange(desc(qc_score)) \%>\% head()
-}
+data("simulated_turnover_data", package = "MSstatsResponse")
+feature_data <- subset(simulated_turnover_data,
+                       PROTEIN \%in\% sprintf("Protein_\%03d", 1:12))
+
+qc <- calculateQCScore(feature_data)
+qc[order(qc$qc_score, decreasing = TRUE), ]
 
 }

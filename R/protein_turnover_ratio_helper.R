@@ -21,46 +21,34 @@
 #' @return Data frame with columns: Protein, BaseSequence, TimeVal, Run, Heavy, Light, Total, H_frac, L_frac
 #'
 #' @examples
-#' \dontrun{
+#' data("simulated_turnover_data", package = "MSstatsResponse")
+#' feature_data <- subset(simulated_turnover_data,
+#'                        PROTEIN %in% sprintf("Protein_%03d", 1:12))
+#'
 #' # Basic usage - all proteins, all peptides
-#' ratios <- calculateTurnoverRatios(
-#'   feature_data = quant_data$FeatureLevelData
-#' )
+#' ratios <- calculateTurnoverRatios(feature_data)
+#' head(ratios)
 #'
-#' # With peptide selection (top 10 by signal per protein)
-#' top10_selector <- function(df) {
-#'   top_peptides <- df %>%
-#'     group_by(BaseSequence) %>%
-#'     summarise(total_signal = sum(Intensity, na.rm = TRUE), .groups = "drop") %>%
-#'     arrange(desc(total_signal)) %>%
-#'     slice_head(n = 10) %>%
-#'     pull(BaseSequence)
-#'
-#'   df %>% filter(BaseSequence %in% top_peptides)
-#' }
-#'
-#' ratios_top10 <- calculateTurnoverRatios(
-#'   feature_data = quant_data$FeatureLevelData,
-#'   peptide_selector = top10_selector
-#' )
-#'
-#' # Use different aggregation function (e.g., median for robustness)
-#' ratios_median <- calculateTurnoverRatios(
-#'   feature_data = quant_data$FeatureLevelData,
-#'   agg_function = median
-#' )
-#'
-#' # With tracer normalization
-#' tracer_consts <- c("0hr" = 1.0, "1hr" = 0.95, "12hrs" = 0.85, "168hrs" = 0.75)
-#' ratios_norm <- calculateTurnoverRatios(
-#'   feature_data = quant_data$FeatureLevelData,
+#' # Correct for tracer enrichment at each timepoint
+#' tracer_constants <- c(`1` = 0.11, `2` = 0.10, `6` = 0.11, `12` = 0.12,
+#'                       `24` = 0.12, `48` = 0.13, `100` = 0.15, `170` = 0.17)
+#' ratios_corrected <- calculateTurnoverRatios(
+#'   feature_data,
 #'   normalize_tracer = TRUE,
-#'   tracer_constants = tracer_consts
+#'   tracer_constants = tracer_constants
 #' )
 #'
-#' # Filter for specific protein after calculation
-#' protein_ratios <- ratios %>% filter(Protein == "A0A2K5TXF6")
+#' # Keep only the two most intense peptides per protein
+#' top2_selector <- function(df) {
+#'   signal <- tapply(df$Intensity, df$BaseSequence, sum, na.rm = TRUE)
+#'   keep <- names(sort(signal, decreasing = TRUE))[seq_len(min(2L, length(signal)))]
+#'   df[df$BaseSequence %in% keep, ]
 #' }
+#' ratios_top2 <- calculateTurnoverRatios(feature_data,
+#'                                        peptide_selector = top2_selector)
+#'
+#' # Use a different aggregation function for duplicate features
+#' ratios_median <- calculateTurnoverRatios(feature_data, agg_function = median)
 #'
 #' @export
 #' @importFrom data.table as.data.table copy data.table dcast is.data.table setnames :=
@@ -249,29 +237,28 @@ kendall_monotonicity <- function(time, response) {
 #'   - weight: Combined quality weight (product of all components)
 #'
 #' @examples
-#' \dontrun{
+#' data("simulated_turnover_data", package = "MSstatsResponse")
+#' feature_data <- subset(simulated_turnover_data,
+#'                        PROTEIN %in% sprintf("Protein_%03d", 1:12))
+#' tracer_constants <- c(`1` = 0.11, `2` = 0.10, `6` = 0.11, `12` = 0.12,
+#'                       `24` = 0.12, `48` = 0.13, `100` = 0.15, `170` = 0.17)
+#'
 #' # Calculate ratios first
-#' ratios <- calculateTurnoverRatios(feature_data)
+#' ratios <- calculateTurnoverRatios(feature_data, normalize_tracer = TRUE,
+#'                                   tracer_constants = tracer_constants)
 #'
 #' # Add quality weights
 #' ratios_weighted <- calculatePeptideWeights(ratios)
 #'
-#' # Inspect coverage diagnostics
-#' ratios_weighted %>%
-#'   group_by(Protein, BaseSequence) %>%
-#'   slice(1) %>%
-#'   select(Protein, BaseSequence, k_obs, p_protein, coverage_score, monotonicity_score, weight)
+#' # Inspect coverage diagnostics, one row per peptide
+#' peptide_summary <- unique(ratios_weighted[, c("Protein", "BaseSequence",
+#'                                               "k_obs", "coverage_score",
+#'                                               "monotonicity_score")])
+#' head(peptide_summary)
 #'
-#' # Use with doseResponseFit
-#' result <- doseResponseFit(
-#'   data = ratios_weighted,
-#'   weights = ratios_weighted$weight,
-#'   increasing = TRUE
-#' )
-#'
-#' # Use stricter validity threshold
-#' ratios_weighted_strict <- calculatePeptideWeights(ratios, validity_threshold = 1.0)
-#' }
+#' # Use a stricter validity threshold
+#' ratios_weighted_strict <- calculatePeptideWeights(ratios,
+#'                                                   validity_threshold = 1.0)
 #'
 #' @export
 #' @importFrom dplyr group_by mutate ungroup across all_of distinct summarise left_join if_else dense_rank
@@ -384,10 +371,12 @@ calculatePeptideWeights <- function(
 #'   - qc_score: observed_cells / n_max_possible, capped at 1
 #'
 #' @examples
-#' \dontrun{
-#' qc <- calculateQCScore(quant_data$FeatureLevelData)
-#' qc %>% arrange(desc(qc_score)) %>% head()
-#' }
+#' data("simulated_turnover_data", package = "MSstatsResponse")
+#' feature_data <- subset(simulated_turnover_data,
+#'                        PROTEIN %in% sprintf("Protein_%03d", 1:12))
+#'
+#' qc <- calculateQCScore(feature_data)
+#' qc[order(qc$qc_score, decreasing = TRUE), ]
 #'
 #' @export
 #' @importFrom dplyr filter group_by summarise n_distinct
@@ -467,14 +456,26 @@ calculateQCScore <- function(feature_data,
 #'   - confidence: combined score in \[0, 1\]
 #'
 #' @examples
-#' \dontrun{
-#' qc      <- calculateQCScore(df_feat)
-#' weights <- calculatePeptideWeights(ratios)
-#' fit     <- doseResponseFit(ratios, increasing = TRUE, precalculated_ratios = TRUE)
-#' conf    <- calculateConfidence(weights, fit, qc, df_feat)
+#' data("simulated_turnover_data", package = "MSstatsResponse")
+#' feature_data <- subset(simulated_turnover_data,
+#'                        PROTEIN %in% sprintf("Protein_%03d", 1:12))
+#' tracer_constants <- c(`1` = 0.11, `2` = 0.10, `6` = 0.11, `12` = 0.12,
+#'                       `24` = 0.12, `48` = 0.13, `100` = 0.15, `170` = 0.17)
 #'
-#' conf %>% arrange(desc(confidence)) %>% head()
-#' }
+#' qc <- calculateQCScore(feature_data)
+#' ratios <- calculateTurnoverRatios(feature_data, normalize_tracer = TRUE,
+#'                                   tracer_constants = tracer_constants)
+#' ratios$protein <- ratios$Protein
+#' ratios$drug <- "Synthesis"
+#' ratios$dose <- ratios$TimeVal
+#' ratios$response <- ratios$H_frac
+#' weights <- calculatePeptideWeights(ratios)
+#' fit <- doseResponseFit(weights, weights = weights$weight, increasing = TRUE,
+#'                        transform_dose = FALSE, precalculated_ratios = TRUE)
+#'
+#' conf <- calculateConfidence(weights, fit, qc, feature_data)
+#' conf[order(conf$confidence, decreasing = TRUE),
+#'      c("Protein", "mean_weight", "qc_score", "n_heavy_peptides", "confidence")]
 #'
 #' @export
 #' @importFrom dplyr filter group_by summarise n_distinct left_join mutate select rename all_of coalesce
@@ -619,15 +620,27 @@ calculateConfidence <- function(weights_df,
 #'   `pep_factor` becomes `heavy_peptide_factor`.
 #'
 #' @examples
-#' \dontrun{
-#' qc      <- calculateQCScore(df_feat)
-#' weights <- calculatePeptideWeights(ratios)
-#' fit     <- doseResponseFit(ratios, increasing = TRUE, precalculated_ratios = TRUE)
-#' conf    <- calculateConfidence(weights, fit, qc, df_feat, k_shrinkage = 2)
+#' data("simulated_turnover_data", package = "MSstatsResponse")
+#' feature_data <- subset(simulated_turnover_data,
+#'                        PROTEIN %in% sprintf("Protein_%03d", 1:12))
+#' tracer_constants <- c(`1` = 0.11, `2` = 0.10, `6` = 0.11, `12` = 0.12,
+#'                       `24` = 0.12, `48` = 0.13, `100` = 0.15, `170` = 0.17)
 #'
-#' final   <- classifyTurnoverProteins(weights, fit, qc, conf)
-#' final %>% count(category, tier)
-#' }
+#' qc <- calculateQCScore(feature_data)
+#' ratios <- calculateTurnoverRatios(feature_data, normalize_tracer = TRUE,
+#'                                   tracer_constants = tracer_constants)
+#' ratios$protein <- ratios$Protein
+#' ratios$drug <- "Synthesis"
+#' ratios$dose <- ratios$TimeVal
+#' ratios$response <- ratios$H_frac
+#' weights <- calculatePeptideWeights(ratios)
+#' fit <- doseResponseFit(weights, weights = weights$weight, increasing = TRUE,
+#'                        transform_dose = FALSE, precalculated_ratios = TRUE)
+#' conf <- calculateConfidence(weights, fit, qc, feature_data, k_shrinkage = 2)
+#'
+#' final <- classifyTurnoverProteins(weights, fit, qc, conf)
+#' table(final$category, final$tier)
+#' final[, c("Protein", "half_life", "max_fitted_ratio", "category", "tier")]
 #'
 #' @export
 #' @importFrom dplyr filter pull group_by summarise rename left_join select any_of all_of everything mutate case_when

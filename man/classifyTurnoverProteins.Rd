@@ -123,14 +123,26 @@ fit are tiered on \code{confidence}; \code{no_heavy} proteins are tiered on \cod
 requires a minimum number of observations.
 }
 \examples{
-\dontrun{
-qc      <- calculateQCScore(df_feat)
-weights <- calculatePeptideWeights(ratios)
-fit     <- doseResponseFit(ratios, increasing = TRUE, precalculated_ratios = TRUE)
-conf    <- calculateConfidence(weights, fit, qc, df_feat, k_shrinkage = 2)
+data("simulated_turnover_data", package = "MSstatsResponse")
+feature_data <- subset(simulated_turnover_data,
+                       PROTEIN \%in\% sprintf("Protein_\%03d", 1:12))
+tracer_constants <- c(`1` = 0.11, `2` = 0.10, `6` = 0.11, `12` = 0.12,
+                      `24` = 0.12, `48` = 0.13, `100` = 0.15, `170` = 0.17)
 
-final   <- classifyTurnoverProteins(weights, fit, qc, conf)
-final \%>\% count(category, tier)
-}
+qc <- calculateQCScore(feature_data)
+ratios <- calculateTurnoverRatios(feature_data, normalize_tracer = TRUE,
+                                  tracer_constants = tracer_constants)
+ratios$protein <- ratios$Protein
+ratios$drug <- "Synthesis"
+ratios$dose <- ratios$TimeVal
+ratios$response <- ratios$H_frac
+weights <- calculatePeptideWeights(ratios)
+fit <- doseResponseFit(weights, weights = weights$weight, increasing = TRUE,
+                       transform_dose = FALSE, precalculated_ratios = TRUE)
+conf <- calculateConfidence(weights, fit, qc, feature_data, k_shrinkage = 2)
+
+final <- classifyTurnoverProteins(weights, fit, qc, conf)
+table(final$category, final$tier)
+final[, c("Protein", "half_life", "max_fitted_ratio", "category", "tier")]
 
 }

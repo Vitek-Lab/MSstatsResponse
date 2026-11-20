@@ -58,45 +58,33 @@ Data frame with columns: Protein, BaseSequence, TimeVal, Run, Heavy, Light, Tota
 Calculate turnover ratios from MSstats FeatureLevelData
 }
 \examples{
-\dontrun{
+data("simulated_turnover_data", package = "MSstatsResponse")
+feature_data <- subset(simulated_turnover_data,
+                       PROTEIN \%in\% sprintf("Protein_\%03d", 1:12))
+
 # Basic usage - all proteins, all peptides
-ratios <- calculateTurnoverRatios(
-  feature_data = quant_data$FeatureLevelData
-)
+ratios <- calculateTurnoverRatios(feature_data)
+head(ratios)
 
-# With peptide selection (top 10 by signal per protein)
-top10_selector <- function(df) {
-  top_peptides <- df \%>\%
-    group_by(BaseSequence) \%>\%
-    summarise(total_signal = sum(Intensity, na.rm = TRUE), .groups = "drop") \%>\%
-    arrange(desc(total_signal)) \%>\%
-    slice_head(n = 10) \%>\%
-    pull(BaseSequence)
-
-  df \%>\% filter(BaseSequence \%in\% top_peptides)
-}
-
-ratios_top10 <- calculateTurnoverRatios(
-  feature_data = quant_data$FeatureLevelData,
-  peptide_selector = top10_selector
-)
-
-# Use different aggregation function (e.g., median for robustness)
-ratios_median <- calculateTurnoverRatios(
-  feature_data = quant_data$FeatureLevelData,
-  agg_function = median
-)
-
-# With tracer normalization
-tracer_consts <- c("0hr" = 1.0, "1hr" = 0.95, "12hrs" = 0.85, "168hrs" = 0.75)
-ratios_norm <- calculateTurnoverRatios(
-  feature_data = quant_data$FeatureLevelData,
+# Correct for tracer enrichment at each timepoint
+tracer_constants <- c(`1` = 0.11, `2` = 0.10, `6` = 0.11, `12` = 0.12,
+                      `24` = 0.12, `48` = 0.13, `100` = 0.15, `170` = 0.17)
+ratios_corrected <- calculateTurnoverRatios(
+  feature_data,
   normalize_tracer = TRUE,
-  tracer_constants = tracer_consts
+  tracer_constants = tracer_constants
 )
 
-# Filter for specific protein after calculation
-protein_ratios <- ratios \%>\% filter(Protein == "A0A2K5TXF6")
+# Keep only the two most intense peptides per protein
+top2_selector <- function(df) {
+  signal <- tapply(df$Intensity, df$BaseSequence, sum, na.rm = TRUE)
+  keep <- names(sort(signal, decreasing = TRUE))[seq_len(min(2L, length(signal)))]
+  df[df$BaseSequence \%in\% keep, ]
 }
+ratios_top2 <- calculateTurnoverRatios(feature_data,
+                                       peptide_selector = top2_selector)
+
+# Use a different aggregation function for duplicate features
+ratios_median <- calculateTurnoverRatios(feature_data, agg_function = median)
 
 }
