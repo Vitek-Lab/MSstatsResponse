@@ -270,3 +270,41 @@ test_that("predictIC50 handles edge case doses", {
 })
 
 
+
+create_turnover_fit_data <- function() {
+  set.seed(42)
+  dose <- rep(c(1, 2, 6, 12, 24, 48), each = 3)
+  data.frame(
+    protein = "P1",
+    drug = "Synthesis",
+    dose = dose,
+    response = rep(c(0.05, 0.15, 0.35, 0.55, 0.75, 0.9), each = 3) +
+      rnorm(length(dose), 0, 0.03)
+  )
+}
+
+test_that("predictIC50 bootstraps precalculated turnover ratios", {
+  data <- create_turnover_fit_data()
+  set.seed(1)
+  result <- predictIC50(data, n_samples = 30, increasing = TRUE,
+                        transform_dose = FALSE, precalculated_ratios = TRUE,
+                        bootstrap = TRUE, target_response = 0.5,
+                        weights = rep(1, nrow(data)),
+                        BPPARAM = BiocParallel::SerialParam())
+  expect_true(is.finite(result$IC50))
+  expect_true(result$IC50_lower_bound <= result$IC50)
+  expect_true(result$IC50 <= result$IC50_upper_bound)
+})
+
+test_that("predictIC50Parallel matches predictIC50", {
+  data <- create_multi_protein_data()
+  serial <- predictIC50(data, bootstrap = FALSE,
+                        BPPARAM = BiocParallel::SerialParam())
+  parallel_result <- suppressMessages(
+    predictIC50Parallel(data, bootstrap = FALSE, numberOfCores = 1)
+  )
+  serial <- serial[order(serial$Protein), ]
+  parallel_result <- parallel_result[order(parallel_result$Protein), ]
+  expect_equal(parallel_result$Protein, serial$Protein)
+  expect_equal(parallel_result$IC50, serial$IC50, tolerance = 1e-12)
+})
