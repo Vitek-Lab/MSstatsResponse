@@ -160,6 +160,45 @@ test_that("data.frame and data.table inputs give the same result", {
                calculateTurnoverRatios(data.table::as.data.table(feat)))
 })
 
+make_confidence_inputs <- function() {
+  feature_data <- data.frame(
+    PROTEIN   = c("P1", "P1", "P1", "P1", "P1", "P2", "P2"),
+    PEPTIDE   = c("PEPA", "PEPA", "PEPB", "PEPC", "PEPD", "PEPE", "PEPE"),
+    LABEL     = c("H",    "L",    "H",    "H",    NA,     "H",    "L"),
+    INTENSITY = c(100,    200,    NA,     Inf,    300,    NA,     400),
+    stringsAsFactors = FALSE
+  )
+  list(
+    feature_data = feature_data,
+    weights = data.frame(Protein = c("P1", "P1", "P2"), weight = c(1, 0.5, 1)),
+    fit = data.frame(Protein = c("P1", "P2"), SSE_Full = c(0, 1)),
+    qc = data.frame(PROTEIN = c("P1", "P2"), qc_score = c(1, 0.5))
+  )
+}
+
+test_that("calculateConfidence counts only heavy peptides with a finite intensity", {
+  inputs <- make_confidence_inputs()
+  result <- calculateConfidence(inputs$weights, inputs$fit, inputs$qc,
+                                inputs$feature_data, k_shrinkage = 2)
+  result <- result[order(result$Protein), ]
+
+  # P1: PEPB (NA) and PEPC (Inf) are not measured; PEPD is unlabeled
+  expect_equal(result$n_heavy_peptides, c(1L, 0L))
+  expect_equal(result$pep_factor, c(1 / 3, 0), tolerance = 1e-12)
+  expect_equal(result$confidence, c(0.75 * 1 * 1 * (1 / 3), 0),
+               tolerance = 1e-12)
+})
+
+test_that("calculateConfidence honors a custom intensity column", {
+  inputs <- make_confidence_inputs()
+  feature_data <- inputs$feature_data
+  names(feature_data)[names(feature_data) == "INTENSITY"] <- "Abundance"
+  result <- calculateConfidence(inputs$weights, inputs$fit, inputs$qc,
+                                feature_data,
+                                feature_intensity_col = "Abundance")
+  expect_equal(result$n_heavy_peptides[result$Protein == "P1"], 1L)
+})
+
 test_that("kendall_monotonicity floors at zero and tolerates sparse input", {
   expect_equal(kendall_monotonicity(c(1, 2, 3), c(1, 2, 3)), 1)
   expect_equal(kendall_monotonicity(c(1, 2, 3), c(3, 2, 1)), 0)
