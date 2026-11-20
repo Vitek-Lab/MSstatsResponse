@@ -28,10 +28,6 @@ knitr::opts_chunk$set(
 This vignette walks through a protein turnover analysis with the R package
 MSstatsResponse.
 
-> **The data used in this vignette are simulated.** The example dataset,
-> `simulated_turnover_data`, was generated to resemble an in vivo
-> heavy-leucine labeling experiment, but every protein, peptide, and
-> intensity in it is synthetic. 
 
 ### The experiment
 
@@ -39,7 +35,7 @@ The simulated dataset mimics the following design:
 
 - **Labeling:** animals are given heavy leucine (`Leu6`) at time 0
 - **Timepoints:** 1, 2, 6, 12, 24, 48, 100 and 170 hours after labeling started
-- **Acquisition:** one run per timepoint, with MS1-level quantification
+- **Acquisition:** one run per timepoint
 - **Size:** 200 proteins
 
 Every peptide that contains leucine can show up in two forms in this
@@ -163,7 +159,7 @@ data("simulated_turnover_data", package = "MSstatsResponse")
 df_feat = simulated_turnover_data
 ```
 
-No pre-filtering is needed. The turnover functions below skip rows without
+The turnover functions below skip rows without
 a heavy or light label, a measured intensity, or a timepoint on their own.
 That includes the leucine-free normalization peptides (`LABEL = NA`), which
 are only used by `dataProcess()`.
