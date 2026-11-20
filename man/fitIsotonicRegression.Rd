@@ -20,7 +20,10 @@ fitIsotonicRegression(
 
 \item{y}{Numeric vector of response values.}
 
-\item{w}{Optional numeric vector of weights. Defaults to equal weights.}
+\item{w}{Optional numeric vector of weights. Defaults to equal weights.
+Observations with weight 0 are excluded from the fit and take the fitted
+value at their dose. Errors with class \code{insufficient_data_error} if fewer
+than 2 doses have an observation with weight > 0.}
 
 \item{increasing}{Logical. If TRUE, fits a non-decreasing model. If FALSE, fits non-increasing.}
 

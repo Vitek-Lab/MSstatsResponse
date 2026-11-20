@@ -5,6 +5,8 @@
 #'
 #' @param data Protein-level data, formatted with MSstatsPreparedoseResponseFit().
 #' @param weights Optional numeric vector of weights. Defaults to equal weights.
+#'   Observations with weight 0 do not affect the fit; proteins with fewer
+#'   than 2 doses with weight > 0 are not fit and are left out of the results.
 #' @param increasing Logical or character. If TRUE, fits a non-decreasing model. If FALSE, fits non-increasing.
 #'   If "both", fits both increasing and decreasing models and selects the one with better fit (lower SSE).
 #'   Recommended for exploratory analysis, but ~2x slower. Default is FALSE.
@@ -134,9 +136,10 @@ doseResponseFit = function(data, weights = NULL,
     protein_list = unique(drug_subset$protein)
     results_list = list()
 
+    n_insufficient = 0L
     progress_bar = txtProgressBar(min = 0, max = length(protein_list), style = 3)
     for (i in seq_along(protein_list)) {
-      tryCatch({
+      skipped = tryCatch({
         suppressWarnings({
           data_single_protein = drug_subset %>% dplyr::filter(protein == protein_list[i])
 
@@ -254,11 +257,20 @@ doseResponseFit = function(data, weights = NULL,
           }
           setTxtProgressBar(progress_bar, i)
         })
+        FALSE
+      }, insufficient_data_error = function(e) {
+        TRUE
       }, error = function(e) {
         warning(paste("Error for drug:", drug_type, "protein:", protein_list[i], ":", conditionMessage(e)))
+        FALSE
       })
+      if (skipped) n_insufficient = n_insufficient + 1L
     }
     close(progress_bar)
+    if (n_insufficient > 0) {
+      message(n_insufficient, " protein(s) not fit for ", drug_type,
+              ": fewer than 2 doses with weight > 0")
+    }
 
     # Combine and adjust p-values for this drug
     if (length(results_list) > 0) {
@@ -358,6 +370,9 @@ doseResponseFit = function(data, weights = NULL,
 #' @param x Numeric vector of dose values.
 #' @param y Numeric vector of response values.
 #' @param w Optional numeric vector of weights. Defaults to equal weights.
+#'   Observations with weight 0 are excluded from the fit and take the fitted
+#'   value at their dose. Errors with class `insufficient_data_error` if fewer
+#'   than 2 doses have an observation with weight > 0.
 #' @param increasing Logical. If TRUE, fits a non-decreasing model. If FALSE, fits non-increasing.
 #' @param transform_x Logical. If TRUE, applies log10(x + 1) transformation. Default is TRUE.
 #' @param ratio_y Logical. If TRUE, converts log2 abundance to ratios relative to DMSO. Default is FALSE.
@@ -403,9 +418,24 @@ fitIsotonicRegression = function(x, y, w = rep(1, length(y)),
   # Otherwise y stays as-is (log2 values)
 
   order_idx = order(x)
-  x_sorted = x[order_idx]
-  y_sorted = y[order_idx]
-  w_sorted = w[order_idx]
+
+  # Zero-weight points are excluded from the fit
+  has_weight = !is.na(w) & w > 0 & !is.na(x) & !is.na(y)
+  if (length(unique(x[has_weight])) < 2) {
+    stop(structure(
+      class = c("insufficient_data_error", "error", "condition"),
+      list(message = "fewer than 2 doses have an observation with weight > 0",
+           call = NULL)
+    ))
+  }
+  x_fit = x[has_weight]
+  y_fit = y[has_weight]
+  w_fit = w[has_weight]
+
+  fit_order = order(x_fit)
+  x_sorted = x_fit[fit_order]
+  y_sorted = y_fit[fit_order]
+  w_sorted = w_fit[fit_order]
 
   if (!increasing) {
     y_sorted = -y_sorted
@@ -454,19 +484,13 @@ fitIsotonicRegression = function(x, y, w = rep(1, length(y)),
   }
 
   y_final = numeric(n_obs)
-  y_final[order_idx] = fit_y
+  y_final[fit_order] = fit_y
 
-  # fix to duplicate x values warnings from approx function
-  if (length(unique(x)) < length(x)) {
-    # Aggregate y values for duplicate x values
-    x_unique = unique(x)
-    y_aggregated = sapply(x_unique, function(xi) {
-      mean(y_final[x == xi])
-    })
-    y_pred_new = stats::approx(x_unique, y_aggregated, xout = x, rule = 2)$y
-  } else {
-    y_pred_new = stats::approx(x, y_final, xout = x, rule = 2)$y
-  }
+  # Doses with only zero-weight points are interpolated
+  x_unique = unique(x_fit)
+  y_aggregated = vapply(x_unique, function(xi) mean(y_final[x_fit == xi]),
+                        numeric(1))
+  y_pred_new = stats::approx(x_unique, y_aggregated, xout = x, rule = 2)$y
 
   # Number of unique fitted level sets (k*): the effective degrees of freedom
   # of the isotonic fit. When there is no pooling k* = number of unique x;

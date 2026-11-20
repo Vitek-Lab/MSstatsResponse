@@ -221,7 +221,7 @@ test_that("fitIsotonicRegression handles edge cases", {
   # Single point
   expect_error(
     fitIsotonicRegression(x = 1, y = 1),
-    "need at least two"
+    class = "insufficient_data_error"
   )
 
   # Two points

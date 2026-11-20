@@ -113,7 +113,7 @@ test_that("visualizeResponseProtein handles missing protein", {
       show_ic50 = FALSE,
       add_ci = FALSE
     ),
-    "need at least two"  # Expect the specific error
+    class = "insufficient_data_error"
   )
 })
 

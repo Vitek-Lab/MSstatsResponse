@@ -16,7 +16,9 @@ doseResponseFit(
 \arguments{
 \item{data}{Protein-level data, formatted with MSstatsPreparedoseResponseFit().}
 
-\item{weights}{Optional numeric vector of weights. Defaults to equal weights.}
+\item{weights}{Optional numeric vector of weights. Defaults to equal weights.
+Observations with weight 0 do not affect the fit; proteins with fewer
+than 2 doses with weight > 0 are not fit and are left out of the results.}
 
 \item{increasing}{Logical or character. If TRUE, fits a non-decreasing model. If FALSE, fits non-increasing.
 If "both", fits both increasing and decreasing models and selects the one with better fit (lower SSE).
