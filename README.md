@@ -6,16 +6,19 @@
 [![License: Artistic-2.0](https://img.shields.io/badge/license-Artistic--2.0-blue.svg)](https://opensource.org/licenses/Artistic-2.0)
 <!-- badges: end -->
 
-MSstatsResponse is an R/Bioconductor package for semi-parametric protein
-response modeling of mass spectrometry-based proteomics experiments. It is
-designed for dose-response chemoproteomics — detecting drug-protein interactions
-and estimating IC50 values — using isotonic regression, F-tests, and
-bootstrap-based confidence intervals rather than assuming a fixed parametric
-curve shape. The same framework applies to protein turnover kinetics
-(synthesis/degradation curves and half-life estimation) and, more generally, to
-any assay whose response follows a monotonic trend with a dose, concentration,
-time, or temperature. MSstatsResponse is applicable to DIA, DDA, TMT, and targeted
-SRM workflows.
+MSstatsResponse is an R/Bioconductor package for semi-parametric modeling of
+protein responses in mass spectrometry-based proteomics experiments. Instead of
+assuming a fixed parametric curve shape, it fits monotonic curves with isotonic
+regression, tests them with F-tests, and estimates confidence intervals by
+bootstrapping. It supports two workflows:
+
+- **Dose-response chemoproteomics:** detect drug-protein interactions and
+  estimate IC50 values.
+- **Protein turnover:** estimate synthesis curves and half-lives from
+  stable-isotope labeling time courses (e.g. heavy leucine), with peptide
+  quality weights, confidence scores, and turnover categories for each protein.
+
+MSstatsResponse is applicable to DIA, DDA, TMT, and targeted SRM workflows.
 
 MSstatsResponse is part of the [MSstats](https://github.com/Vitek-Lab/MSstats)
 family of packages, developed and maintained by the
@@ -39,6 +42,8 @@ remotes::install_github("Vitek-Lab/MSstatsResponse")
 ```
 
 ## Quick Start
+
+### Dose-response chemoproteomics
 
 ```r
 library(MSstatsResponse)
@@ -68,27 +73,51 @@ ic50 <- predictIC50(prepared,
                     n_samples = 1000)
 ```
 
+### Protein turnover
+
+```r
+library(MSstatsResponse)
+
+# Simulated heavy-leucine labeling time course (feature-level MSstats format)
+data("simulated_turnover_data")
+
+qc <- calculateQCScore(simulated_turnover_data)
+ratios <- calculateTurnoverRatios(simulated_turnover_data)
+ratios$protein <- ratios$Protein
+ratios$drug <- "Synthesis"
+ratios$dose <- ratios$TimeVal
+ratios$response <- ratios$H_frac
+
+weighted <- calculatePeptideWeights(ratios)
+fit <- doseResponseFit(weighted, weights = weighted$weight, increasing = TRUE,
+                       transform_dose = FALSE, precalculated_ratios = TRUE)
+conf <- calculateConfidence(weighted, fit, qc, simulated_turnover_data)
+
+# Half-life, turnover category, and confidence tier for each protein
+final <- classifyTurnoverProteins(weighted, fit, qc, conf)
+```
+
 ## Input Formats
 
-MSstatsResponse works on **summarized protein-level data**, not raw search-tool
-output. It is compatible with the output of the standard MSstats and MSstatsTMT
-summarization steps:
+MSstatsResponse works on data processed with MSstats or MSstatsTMT, not raw
+search-tool output:
 
-| Upstream package | Summarization function | Field used |
+| Workflow | Upstream function | Field used |
 | --- | --- | --- |
-| [MSstats](https://github.com/Vitek-Lab/MSstats) | `dataProcess()` | `$ProteinLevelData` |
-| [MSstatsTMT](https://github.com/Vitek-Lab/MSstatsTMT) | `proteinSummarization()` | `$ProteinLevelData` |
+| Dose-response | [MSstats](https://github.com/Vitek-Lab/MSstats) `dataProcess()` or [MSstatsTMT](https://github.com/Vitek-Lab/MSstatsTMT) `proteinSummarization()` | `$ProteinLevelData` |
+| Protein turnover | [MSstats](https://github.com/Vitek-Lab/MSstats) `dataProcess()` on heavy/light labeled data | `$FeatureLevelData` |
 
-`MSstatsPrepareDoseResponseFit()` accepts any data frame with columns for the
-dose/concentration/time (x-axis), a protein/gene/peptide identifier, the
-log-abundance response (y-axis), and — for multi-drug experiments — a drug
-identifier. This makes the workflow extensible to other assays with a monotonic
-response, including protein turnover kinetics. See the vignette for details on
-each required column.
+For dose-response analysis, `MSstatsPrepareDoseResponseFit()` accepts any data
+frame with columns for the dose or concentration, a protein identifier, the
+log-abundance response, and, for multi-drug experiments, a drug identifier.
+The turnover functions take the feature-level table directly and let you name
+the protein, peptide, label, timepoint, and intensity columns. See the
+vignettes for details.
 
 ## Documentation
 
-- [MSstatsResponse vignette](vignettes/MSstatsResponse.Rmd) — full worked example from summarized data to IC50 estimates
+- [Dose-response vignette](vignettes/MSstatsResponse.Rmd): full worked example from summarized data to IC50 estimates
+- [Protein turnover vignette](vignettes/MSstatsResponse_Protein_Turnover_Workflow.Rmd): turnover ratios, peptide weights, curve fitting, and half-life estimates on a simulated dataset
 - [Official website: msstats.org](http://msstats.org)
 - [Bioconductor package page and reference manual](https://bioconductor.org/packages/MSstatsResponse)
 
@@ -105,10 +134,9 @@ each required column.
 
 If you use MSstatsResponse, please cite:
 
-1. Szvetecz S, Kohler D, Vitek O. **MSstatsResponse: Semi-parametric statistical
+1. Szvetecz, S. et al. (2026). **MSstatsResponse: Semi-parametric statistical
    model enhances detection of drug-protein interactions in chemoproteomics
-   experiments.** *bioRxiv*. 2026.
-   [DOI: 10.64898/2026.03.09.710598](https://doi.org/10.64898/2026.03.09.710598)
+   experiments.** *Molecular & Cellular Proteomics*, 25(9), 101637.
 
 ## Funding
 
