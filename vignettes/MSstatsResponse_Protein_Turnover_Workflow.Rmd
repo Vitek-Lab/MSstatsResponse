@@ -1,0 +1,546 @@
+---
+title: "MSstatsResponse: A workflow for analyzing protein turnover mass spectrometry-based proteomics experiments"
+author: "Sarah Szvetecz (szvetecz.s@northeastern.edu), Tony Wu (wu.anthon@northeastern.edu), Olga Vitek (o.vitek@northeastern.edu)"
+date: "`r Sys.Date()`"
+output:
+  BiocStyle::html_document:
+    toc: true
+    toc_depth: 2
+vignette: >
+  %\VignetteIndexEntry{MSstatsResponse Protein Turnover Workflow}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse   = TRUE,
+  comment    = "#>",
+  fig.width  = 7,
+  fig.height = 5,
+  warning    = FALSE,
+  message    = FALSE
+)
+```
+
+## Introduction
+
+This vignette walks through a protein turnover analysis with the R package
+MSstatsResponse.
+
+> **The data used in this vignette are simulated.** The example dataset,
+> `simulated_turnover_data`, was generated to resemble an in vivo
+> heavy-leucine labeling experiment, but every protein, peptide, and
+> intensity in it is synthetic. 
+
+### The experiment
+
+The simulated dataset mimics the following design:
+
+- **Labeling:** animals are given heavy leucine (`Leu6`) at time 0
+- **Timepoints:** 1, 2, 6, 12, 24, 48, 100 and 170 hours after labeling started
+- **Acquisition:** one run per timepoint, with MS1-level quantification
+- **Size:** 200 proteins
+
+Every peptide that contains leucine can show up in two forms in this
+experiment: a **light** form, made before the heavy leucine was introduced,
+and a **heavy** form, made afterward.
+
+### How the curve is fit
+
+MSstatsResponse fits a curve to each protein's heavy fraction over time using
+**isotonic regression**. The only thing this method assumes is that the
+heavy fraction goes up over time (or stays flat). 
+
+### What the workflow does, step by step
+
+1. **Check data quality** (`calculateQCScore()`): for each protein, what
+   fraction of the expected "light" (pre-existing) peptide measurements did
+   we actually detect? This flags proteins with missing data in the light
+   channel.
+2. **Calculate turnover ratios** (`calculateTurnoverRatios()`): for every
+   peptide at every timepoint, what fraction of the signal is heavy (newly
+   made)?
+3. **Score peptide quality** (`calculatePeptideWeights()`): give each peptide
+   measurement a quality score, so noisier ones count for less when the
+   curve is fit.
+4. **Fit the curve** (`doseResponseFit()`): fit one turnover curve per
+   protein, using the peptide quality scores from step 3.
+5. **Score confidence** (`calculateConfidence()`): combine everything above
+   into one number per protein.
+6. **Classify proteins** (`classifyTurnoverProteins()`): sort proteins into
+   long-lived, medium-lived, or fast, and label how confident each call is.
+7. **Plot the results** (`visualizeResponseProtein()`): look at individual
+   protein turnover curves.
+
+## Installation and setup
+
+### Install MSstatsResponse
+
+```{r install, eval = FALSE}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+BiocManager::install("MSstatsResponse")
+
+# MSstats is only needed if you run the preprocessing in the next section
+BiocManager::install("MSstats")
+```
+
+### Load required libraries
+
+```{r load_libraries, message = FALSE}
+library(MSstatsResponse)
+library(dplyr)
+library(ggplot2)
+library(data.table)
+```
+
+## Data preprocessing with MSstats
+
+Before MSstatsResponse can be used, the raw output from the search software
+has to be cleaned up, normalized, and summarized with the standard MSstats
+workflow. That means converting it into MSstats format with one of the
+converter functions (for labeled turnover data, e.g.
+`SpectronauttoMSstatsFormat()` or `DIANNtoMSstatsFormat()`) and then running
+`dataProcess()`.
+
+**The code below is shown for reference only and does not run when this
+vignette is built.** The rest of the vignette starts from the simulated
+example dataset in the next section, which has the same structure as the
+`FeatureLevelData` returned by `dataProcess()`.
+
+```{r msstats_preprocessing, eval = FALSE}
+library(MSstats)
+library(stringr)
+
+input = data.table::fread("path/to/spectronaut_report.csv")
+
+# Build the annotation from the report itself: one row per run (fraction)
+annotation = input %>%
+  distinct(Run = R.FileName, Fraction = R.Fraction, Condition = R.Condition) %>%
+  mutate(BioReplicate = Condition)
+
+# Keep peptides with 0 or 1 leucine in the sequence:
+#   0 L -> can never pick up the heavy label. MSstats marks these LABEL = NA,
+#          and they're exactly the peptides `nameStandards = "unlabeled"` uses
+#          as normalization standards below, so they need to be kept here.
+#   1 L -> one leucine, so the heavy version is fully labeled and the light
+#          version has none. A clean heavy/light pair.
+#  >=2 L -> dropped. A peptide with 2+ leucines that shows only 1 [Leu6] is
+#          partially labeled, not fully labeled, so counting it as "heavy"
+#          would understate how much protein actually turned over.
+input_proper = input %>%
+  filter(str_count(str_remove_all(FG.LabeledSequence, "\\[.*?\\]"), "L") <= 1)
+
+msstats_input = SpectronauttoMSstatsFormat(
+  input_proper,
+  annotation             = annotation,
+  intensity              = "FG.MS1Quantity",
+  peptideSequenceColumn  = "FG.LabeledSequence",
+  heavyLabels            = c("L[Leu6]"),
+  filter_with_Qvalue     = TRUE,
+  removeFewMeasurements  = FALSE,
+  calculateAnomalyScores = FALSE
+)
+
+quant_data = dataProcess(msstats_input,
+                         normalization = "globalStandards",
+                         nameStandards = "unlabeled",
+                         featureSubset = "all",
+                         numberOfCores = 4)
+
+feature_data = quant_data$FeatureLevelData
+```
+
+### Loading the example data
+
+```{r load_example_data}
+data("simulated_turnover_data", package = "MSstatsResponse")
+
+# To analyze your own data, use the output of dataProcess() instead:
+# df_feat = quant_data$FeatureLevelData
+df_feat = simulated_turnover_data
+```
+
+No pre-filtering is needed. The turnover functions below skip rows without
+a heavy or light label, a measured intensity, or a timepoint on their own.
+That includes the leucine-free normalization peptides (`LABEL = NA`), which
+are only used by `dataProcess()`.
+
+```{r data_overview}
+df_feat %>%
+  summarize(proteins   = n_distinct(PROTEIN),
+            peptides   = n_distinct(PEPTIDE),
+            timepoints = n_distinct(GROUP),
+            runs       = n_distinct(originalRUN))
+
+table(df_feat$GROUP, df_feat$LABEL, useNA = "ifany")
+```
+
+Heavy measurements become more common at later timepoints, as more of each
+protein is replaced.
+
+## Full workflow
+
+### Step 1: Checking data quality (light-channel QC)
+
+For every protein, we ask: of all the pre-existing (light) peptide
+measurements we could have possibly seen (every peptide, at every timepoint),
+how many did we actually detect?
+
+$$\text{QC score} = \frac{\text{light measurements observed}}{\text{light peptides} \times \text{timepoints}}$$
+
+A protein seen at every peptide and every timepoint scores 1.0. A protein
+that's only there for half of those combinations scores 0.5.
+
+This matters most for proteins with little or no heavy signal later on: is
+that because the protein genuinely turns over slowly, or just because we
+didn't measure it very well? The QC score helps tell those two situations
+apart.
+
+```{r calc_qc}
+qc = calculateQCScore(df_feat)
+```
+
+```{r show_qc}
+qc %>% head(n = 10)
+```
+
+### Step 2: Turnover ratios
+
+For every peptide at every timepoint, we calculate what fraction of its
+signal is heavy:
+
+$$\text{heavy fraction} = \frac{\text{heavy intensity}}{\text{heavy intensity} + \text{light intensity}}$$
+
+The heavy leucine given to the animals is never 100% pure once it's inside
+the body, so a fully-replaced protein won't actually reach a heavy fraction
+of 1. It'll top out wherever the tracer purity is. To correct for this, we
+divide the raw ratio above by the known tracer purity ("tracer constant") at
+each timepoint. After this correction, a heavy fraction of 1 really does mean
+"fully replaced." This corrected number is stored as `H_frac`, and it's what
+gets modeled in the rest of the workflow. Tracer constants vary from
+experiment to experiment; the values below are the ones used to simulate the
+example data. By default (`normalize_tracer = FALSE`) no correction is
+applied, which is the same as using a tracer constant of 1.
+
+```{r prepare_data}
+tracer_constants = c(
+  `1`  = 0.11, `2`  = 0.10, `6`   = 0.11, `12`  = 0.12,
+  `24` = 0.12, `48` = 0.13, `100` = 0.15, `170` = 0.17
+)
+
+ratios = calculateTurnoverRatios(df_feat, normalize_tracer = TRUE,
+                                 tracer_constants = tracer_constants)
+```
+
+`doseResponseFit()` expects columns named `protein`, `drug`, `dose`, and
+`response`, so we add them here. The timepoint plays the role of the dose,
+and the tracer-corrected heavy fraction is the response.
+
+```{r format_for_fit}
+ratios = ratios %>%
+  mutate(protein = Protein, drug = "Synthesis", dose = TimeVal,
+         response = H_frac)
+
+table(ratios$TimeVal)
+```
+
+```{r show_ratios}
+ratios %>% head(10)
+```
+
+*Modeling degradation instead of synthesis?* Use the same steps, but set
+`drug = "Degradation"`, `response = L_frac`, and `increasing = FALSE` in the
+fitting step below, and adjust `tracer_constants` accordingly.
+
+### Step 3: Scoring peptide quality
+
+Peptides differ a lot in how much we should trust them: some are detected at
+every timepoint, some rise cleanly over time the way we'd expect turnover to
+behave, and some are noisy. Rather than treating every peptide equally, this
+step gives each one a **quality weight** between 0 and 1, so unreliable
+peptides count for less when we fit each protein's curve in Step 4.
+
+The weight is four scores multiplied together, each answering a different
+question about the peptide:
+
+$$w = w_{\text{cov}} \times w_{\text{mono}} \times w_{\text{light}} \times w_{\text{valid}}$$
+
+- **Coverage** $\;w_{\text{cov}} = \min(1,\, k_{tp} / n\bar{p})$: was this
+  peptide detected often enough, compared to the protein's other peptides?
+  $k_{tp}$ is the number of (non-zero) timepoints where this peptide was
+  detected; $n\bar{p}$ is the average detection count across the protein's
+  peptides. A peptide detected at or above the protein's average scores 1;
+  one seen at far fewer timepoints drops toward 0.
+- **Monotonicity** $\;w_{\text{mono}} = \max(0,\, \tau)$: does its synthesis
+  ratio $y_H$ (the heavy fraction) actually go up over time, the way turnover
+  should behave? $\tau$ is Kendall's rank correlation between timepoint and
+  $y_H$, floored at 0. A peptide that rises cleanly scores close to 1; one
+  that goes up and down scores lower; one that only goes down, or has fewer
+  than two detected timepoints, scores exactly 0.
+- **Light intensity** (optional) $\;w_{\text{light}} = 1$ by default: an
+  optional "top-$N$" filter rather than a quality signal. When turned on, it
+  keeps the $N$ most intense peptides per protein (ranked by median
+  light-channel intensity), scoring them 1 and the rest 0.
+- **Validity** $\;w_{\text{valid}} = \mathbf{1}(0 \le y_H \le \theta)$: is
+  the value itself logical? Unlike the other three, this is checked per
+  measurement (default cutoff $\theta = 1.3$): a synthesis ratio that's
+  negative, missing, or above $\theta$ scores 0 for that one timepoint,
+  leaving the peptide's other measurements untouched.
+
+```{r calc_weights}
+ratios_weighted = calculatePeptideWeights(
+  ratios,
+  validity_threshold = 1.3, # adjustable to any value
+  top_n_peptides     = NULL # NULL uses all peptides; a number keeps only the
+                            # top n peptides by light-channel intensity
+)
+```
+
+```{r show_weights}
+ratios_weighted %>% data.frame() %>% head(10)
+```
+
+### Step 4: Fitting the turnover curve
+
+This fits one curve per protein, pooling together all of its peptides,
+weighted by the quality scores from Step 3.
+
+```{r fit, results = "hide"}
+fit = doseResponseFit(ratios_weighted,
+                      weights              = ratios_weighted$weight,
+                      increasing           = TRUE,
+                      transform_dose       = FALSE,
+                      precalculated_ratios = TRUE)
+```
+
+Two columns from this step matter later on: `SSE_Full` (how far the peptide
+measurements sit from the fitted curve; lower means a better fit) and
+`max_fitted_ratio` (how high the curve climbs; used in Step 6 to decide
+whether a protein is fast, medium, or long-lived).
+
+```{r show_fit}
+fit %>%
+  select(Protein, SSE_Full, max_fitted_ratio) %>%
+  head(10)
+```
+
+Proteins that don't show up in `fit` simply didn't have enough usable heavy
+signal to fit a curve at all. They're not dropped; they get labeled
+`no_heavy` in Step 6.
+
+### Step 5: Scoring confidence
+
+This step combines everything so far into one number per protein, between 0
+and 1: how trustworthy its peptides were (Step 3), how well the curve
+actually fit the data (Step 4), how completely its light channel was
+measured (Step 1), and how many heavy peptides it had (a protein with just
+one heavy peptide is discounted, since one peptide's behavior could be a
+fluke).
+
+$$\text{confidence} = \bar{w} \times \frac{1}{1 + SSE_{\text{full}}} \times \text{QC} \times \frac{n_H}{n_H + k}$$
+
+- $\bar{w}$: the peptide quality weights from Step 3, averaged across the
+  protein
+- $SSE_{\text{full}}$: how well the curve fit, from Step 4
+- $\text{QC}$: the light-channel quality score from Step 1
+- $n_H$: number of peptides with detectable heavy signal
+- $k$ (`k_shrinkage`): how harshly to discount proteins with few heavy
+  peptides. With the default $k = 2$, a protein with only 1 heavy peptide is
+  capped at 1/3 of the score it could otherwise reach.
+
+```{r calc_confidence}
+conf = calculateConfidence(ratios_weighted, fit, qc, df_feat, k_shrinkage = 2)
+```
+
+```{r show_confidence}
+conf %>%
+  arrange(-confidence) %>%
+  select(Protein, SSE_Full, max_fitted_ratio, mean_weight, qc_score,
+         n_heavy_peptides, confidence) %>%
+  head(10)
+```
+
+### Step 6: Classifying proteins
+
+Each protein gets a **category** describing how it behaves, and a **tier**
+(HIGH / MEDIUM / LOW) saying how much to trust that call.
+
+**Category** is decided by how high the fitted curve climbs
+(`max_fitted_ratio`), not by any single peptide's best measurement:
+
+- `long_lived`: the curve never climbs above 30% heavy
+- `medium_lived`: the curve climbs to somewhere between 30% and 90% heavy
+- `fast`: the curve climbs above 90% heavy
+- `no_heavy`: no curve could be fit at all, either because no heavy signal
+  was ever detected, or because what little was detected was too sparse to
+  fit (these are good long-lived-protein candidates too)
+
+**Half-life** is the time it took the fitted curve to reach 50% heavy. If the
+curve never gets there, `half_life` is `NA`. This includes every
+`long_lived` protein, plus any `medium_lived` protein that plateaus somewhere
+between 30% and 50%.
+
+**Columns worth knowing:**
+
+- `half_life`: time to reach 50% heavy, or `NA` if the curve never gets there
+- `max_observed_heavy_ratio`: the single highest heavy fraction actually
+  measured for this protein, straight from the data (not the fitted curve)
+- `max_fitted_ratio`: the highest point the fitted curve reaches; this is
+  what decides `category`
+- `confidence`: the score from Step 5
+- `category`, `tier`: as described above
+
+**Tier** is just where a protein ranks against the rest of *this* dataset:
+
+- proteins with a fitted curve are ranked by `confidence`
+- `no_heavy` proteins are ranked by `qc_score` instead, since there's no
+  curve to score
+- HIGH also requires at least 3 data points, so a great score built on very
+  little data doesn't count as HIGH
+
+By default, the top 15% are HIGH and the bottom 25% are LOW (everything else
+is MEDIUM). You can make these stricter or looser, e.g.
+`high_quantile = 0.75` for a top-quartile HIGH cutoff.
+
+```{r classify}
+final = classifyTurnoverProteins(
+  ratios_weighted,
+  fit,
+  qc,
+  conf,
+  high_quantile     = 0.85, # upper percentile cutoff for HIGH tier
+  low_quantile      = 0.25, # lower percentile cutoff for LOW tier
+  min_obs           = 3,    # minimum observations required for HIGH tier
+  long_lived_cutoff = 0.3,  # max_fitted_ratio below this is long_lived
+  fast_cutoff       = 0.9   # max_fitted_ratio above this is fast
+)
+final %>% count(category, tier)
+```
+
+```{r half_life}
+final %>%
+  filter(!is.na(half_life)) %>%
+  arrange(half_life) %>%
+  select(Protein, half_life, max_observed_heavy_ratio, confidence, category,
+         tier) %>%
+  head(10)
+```
+
+### Step 7: Looking at individual turnover curves
+
+`visualizeResponseProtein()` plots a protein's peptide-level measurements
+alongside its fitted curve, so you can sanity-check the numbers by eye.
+`show_weights = TRUE` sizes each point by its quality weight from Step 3, and
+`show_ic50 = TRUE` marks the time the curve crosses `target_response` (here
+labeled `t50`, for half-life).
+
+```{r example_protein_table}
+example_protein = "Protein_072"
+
+final %>%
+  filter(Protein == example_protein) %>%
+  select(Protein, half_life, max_observed_heavy_ratio, max_fitted_ratio,
+         confidence, category, tier)
+```
+
+```{r example_protein_plot}
+visualizeResponseProtein(
+  data                 = ratios_weighted,
+  protein_name         = example_protein,
+  drug_name            = "Synthesis",
+  precalculated_ratios = TRUE,
+  ratio_response       = FALSE,
+  transform_dose       = FALSE,
+  weights              = ratios_weighted$weight,
+  increasing           = TRUE,
+  show_ic50            = TRUE,
+  ic50_label           = "t50",
+  add_ci               = FALSE,
+  target_response      = 0.5,
+  show_weights         = TRUE,
+  y_lab                = "Synthesis Ratio",
+  title                = paste(example_protein, "turnover"),
+  x_lab                = "Time (hrs)",
+  color_by             = "BaseSequence"
+)
+```
+
+### Optional: generate turnover curve reports for visual review
+
+This groups proteins by category and tier (HIGH / MEDIUM / LOW) and plots
+their turnover curves together, so you can page through and eyeball a whole
+group at once. Pick one `protein_list` before running the plotting code.
+
+```{r save_turnover_curves, eval = FALSE}
+library(gridExtra)
+
+output_dir = tempdir()
+
+# fast, high-confidence proteins
+protein_list = final %>% filter(category == "fast", tier == "HIGH") %>% pull(Protein)
+
+# fast, medium-confidence proteins
+protein_list = final %>% filter(category == "fast", tier == "MEDIUM") %>% pull(Protein)
+
+# medium-lived, high-confidence proteins
+protein_list = final %>% filter(category == "medium_lived", tier == "HIGH") %>% pull(Protein)
+
+# potential long-lived proteins (no detectable heavy signal), high-confidence
+protein_list = final %>% filter(category == "no_heavy", tier == "HIGH") %>% pull(Protein)
+
+plots = lapply(protein_list, function(p) {
+  tryCatch({
+    visualizeResponseProtein(
+      data                 = ratios_weighted,
+      protein_name         = p,
+      drug_name            = "Synthesis",
+      precalculated_ratios = TRUE,
+      ratio_response       = FALSE,
+      transform_dose       = FALSE,
+      weights              = ratios_weighted$weight,
+      increasing           = TRUE,
+      show_ic50            = TRUE,
+      add_ci               = FALSE,
+      ic50_label           = "t50",
+      target_response      = 0.5,
+      show_weights         = TRUE,
+      y_lab                = "Turnover Ratio",
+      x_lab                = "time (hrs)",
+      color_by             = "BaseSequence"
+    ) +
+      ggtitle(p) +
+      theme(aspect.ratio = 1) +
+      scale_y_continuous(limits = c(0, 1.5))
+  }, error = function(e) {
+    ggplot() + ggtitle(paste0(p, " (error)")) + theme_void()
+  })
+})
+
+ggsave(
+  filename = file.path(output_dir, "turnover_proteins.pdf"),
+  plot     = marrangeGrob(plots, nrow = 3, ncol = 3, top = NULL),
+  width    = 20, height = 16
+)
+
+write.csv(final, file.path(output_dir, "turnover_results.csv"),
+          row.names = FALSE)
+```
+
+## Session information
+
+```{r session_info}
+sessionInfo()
+```
+
+## References
+
+1. Szvetecz, S., et al. (2026). MSstatsResponse: Semi-parametric statistical
+   model enhances drug-protein interaction detection and IC50 estimation in
+   chemoproteomics experiments. *MCP*
+
+2. Choi, M., et al. (2014). MSstats: an R package for statistical analysis of
+   quantitative mass spectrometry-based proteomic experiments.
+   *Bioinformatics*, 30(17), 2524-2526.
